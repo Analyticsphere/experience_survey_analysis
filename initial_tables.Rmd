@@ -1,0 +1,629 @@
+---
+## Description =================================================================
+# Title:        Script Title
+# Author:       Your Name
+# Date:         2024-10-11
+# Objective:    Script Purpose
+# GH-Issue:     Github Issue
+---
+
+# Setup
+```{r, echo = FALSE}
+dataset <- "FlatConnect"
+table   <- "participants_JP"
+tier    <- "dev" # "dev", "stg", or "prod"
+
+project <- switch(tier,
+                  dev  = "nih-nci-dceg-connect-dev",
+                  stg  = "nih-nci-dceg-connect-stg-5519",
+                  prod = "nih-nci-dceg-connect-prod-6d04")
+
+billing <- project # Use the same project for billing, always.
+```
+
+## Libraries
+```{r, echo = FALSE}
+library(dplyr)
+library(DBI)
+library(bigrquery)
+library(glue)
+library(gt)
+library(ggplot2)
+```
+
+## BQ Authorization & Connection
+```{r, echo = FALSE}
+bq_auth() # Authenticate with BigQuery
+
+# Establish connection to BigQuery
+con_completion <- dbConnect(bigrquery::bigquery(), 
+                            project=project, 
+                            dataset=dataset, 
+                            billing=billing)
+```
+
+# Query 1
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql <- glue(
+  "
+              SELECT d_956490759
+              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+            ")
+
+# Query the data and store as reference object
+data_completion <- dbGetQuery(con_completion, sql)
+```
+
+## Download
+```{r, echo = FALSE}
+data_completion <- data_completion %>%
+  count(d_956490759) %>%
+  mutate (survey_completion = case_when(d_956490759 == '972455046'  ~ 'Not Started',
+                                        d_956490759 == '615768760' ~ 'Started',
+                                        d_956490759 == '231311385' ~ 'Submitted')) %>%
+  collect()
+
+total_eligible = sum(data_completion$n[1:3])
+data_completion$percentage = data_completion$n/(total_eligible)*100
+data_completion = data_completion[1:3, ]
+```
+
+## Completion Table
+```{r, echo= FALSE}
+gt_completion = data_completion %>%
+  gt::gt()%>%
+  tab_header(title = "Survey Completion") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(n= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), survey_completion = md("**Survey Completion**")) %>%
+  cols_hide(d_956490759) %>%
+  cols_move(n, survey_completion)
+gt_completion
+```
+
+# Query 2
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql2 <- glue(
+  "
+              SELECT 
+                  D_260186214 as device_my_connect,
+                  D_875017278 as my_connect_ease,
+                  D_630940888 as technical_issues,
+                  D_646060480 as finding_my_connect,
+                  D_124830305 as comms,
+                  D_646060480 as info_needed,
+                  D_586132480 as first_survey_completion,
+                  D_886084185_D_886084185 as why_not_first_survey,
+                  D_945546878 as length_first_survey,
+                  D_472709337 as biospecimen_donation,
+                  D_890945599 as comms_biospeciment_donation,
+                  D_465287908 as time_biospecimen_donation,
+                  D_956625094 as ease_donating_samples,
+                  D_476960744 as exp_dontating_samples,
+                  D_307813936 as sample_survey_completion,
+                  D_800057241 as at_visit_sample_survey,
+                  D_943119849_D_943119849 as why_not_sample_survey,
+                  D_482763096 as survey_length_pref,
+                  D_176469609 as overall_experience,
+                  D_960544981_d_101837333 as why_joined_nci, 
+                  D_960544981_d_313446770 as why_joined_team, 
+                  D_960544981_d_393996571 as why_joined_cancer_research, 
+                  D_960544981_d_490731188 as why_joined_hc_system_rep, 
+                  D_960544981_d_604524950 as why_joined_cancer_personal_impact, 
+                  D_960544981_d_815468840 as why_joined_like_research, 
+                  D_960544981_d_847753225 as why_joined_payment, 
+                  D_960544981_d_925993577 as why_joined_help_other,
+                  D_960544981_d_985468594 as why_joined_friend_involved
+                  
+              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`
+            ")
+
+# Query the data and store as reference object
+data_survey <- dbGetQuery(con_completion, sql2)
+```
+
+## Download
+```{r, echo = FALSE}
+data_survey<- data_survey %>%
+  collect()
+```
+
+```{r, echo = FALSE}
+data_survey[] <- lapply(data_survey, function(x) {
+  if (is.character(x)) {
+    x <- gsub("353358909", "Yes", x)
+    x <- gsub("104430631", "No", x)
+    x <- gsub("242016061", "Too many", x)
+    x <- gsub("185898646", "Just enough", x)
+    x <- gsub("803970496", "Not enough", x)
+    x <- gsub("178420302", "Unsure", x)
+    x <- gsub("198030665", "Yes, completed all", x)
+    x <- gsub("687057737", "Yes, completed some", x)
+    x <- gsub("333628672", "No, completed none", x)
+    x <- gsub("807574160", "Very easy", x)
+    x <- gsub("371268341", "Very easy", x)
+    x <- gsub("417633823", "Easy", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("940801246", "Hard", x)
+    x <- gsub("527229910", "Very hard", x)
+    x <- gsub("117258272", "I cannot find the survey", x)
+    x <- gsub("773860876", "I am having technical issues", x)
+    x <- gsub("551201830", "I don't have time", x)
+    x <- gsub("205790732", "I don't feel comfortable answering the survey questions", x)
+    x <- gsub("701389038", "I have connectivity issues", x)
+    x <- gsub("807835037", "Other", x)
+    x <- gsub("948464607", "Too long", x)
+    x <- gsub("537785073", "Just long enough", x)
+    x <- gsub("672312050", "Not long enough", x)
+    x <- gsub("254017984", "Very well", x)
+    x <- gsub("604455183", "Well", x)
+    x <- gsub("565881164", "Very good", x)
+    x <- gsub("719933364", "Good", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("138752522", "Poor", x)
+    x <- gsub("878535894", "Very poor", x)
+    x <- gsub("777433416", "Too much time", x)
+    x <- gsub("589724105", "Right amount of time", x)
+    x <- gsub("576052130", "Too little time", x)
+    x <- gsub("588529567", "Longer surveys, sent less often", x)
+    x <- gsub("628115953", "Shorter surveys, sent more often", x)
+    x <- gsub("267441074", "I don’t have a preference for survey length and frequency", x)
+  }
+  return(x)
+})
+```
+
+## Tables
+### Question 7 Table
+```{r, echo = FALSE}
+data_survey_ease = as.data.frame(table((data_survey$my_connect_ease)))
+data_survey_ease$percentage = data_survey_ease$Freq/sum(data_survey_ease$Freq)*100
+data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+gt_ease = data_survey_ease %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "How easy or hard is it to use MyConnect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ease
+```
+
+### Question 8 Table
+```{r, echo = FALSE}
+data_survey_tech = as.data.frame(table((data_survey$technical_issues)))
+data_survey_tech$percentage = data_survey_tech$Freq/sum(data_survey_tech$Freq)*100
+data_survey_tech$Var1= factor(data_survey_tech$Var1, levels = c("Yes", "No"))
+gt_tech = data_survey_tech %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Have you experienced technical problems?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_tech
+```
+
+### Question 10 Table
+```{r, echo = FALSE}
+data_survey_find = as.data.frame(table((data_survey$finding_my_connect)))
+data_survey_find$percentage = data_survey_find$Freq/sum(data_survey_find$Freq)*100
+data_survey_find$Var1= factor(data_survey_find$Var1, levels = c("Yes", "No"))
+gt_find = data_survey_find %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Are you able to find everything you are looking for on MyConnect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_find
+```
+
+### Question 13 Table
+```{r, echo = FALSE}
+data_survey_comms = as.data.frame(table((data_survey$comms)))
+data_survey_comms$percentage = data_survey_comms$Freq/sum(data_survey_comms$Freq)*100
+data_survey_comms$Var1= factor(data_survey_comms$Var1, levels = c("Too many", "Just enough", "Not enough"))
+gt_comms = data_survey_comms %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "What do you think about the number of communications you get from the Connect team?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_comms
+```
+
+### Question 14 Table
+```{r, echo = FALSE}
+data_survey_info_needed = as.data.frame(table((data_survey$info_needed)))
+data_survey_info_needed$percentage = data_survey_info_needed$Freq/sum(data_survey_info_needed$Freq)*100
+data_survey_info_needed$Var1= factor(data_survey_info_needed$Var1, levels = c("Yes", "No", "Unsure"))
+gt_info = data_survey_info_needed %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Do the Connect communications give you the information you need to complete study tasks?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_info
+```
+
+### Question 16 Table
+```{r, echo = FALSE}
+data_survey_first = as.data.frame(table((data_survey$first_survey_completion)))
+data_survey_first$percentage = data_survey_first$Freq/sum(data_survey_first$Freq)*100
+data_survey_first$Var1= factor(data_survey_first$Var1, levels = c("Yes, completed all", "Yes, completed some", "No, completed none", "Unsure"))
+gt_first = data_survey_first %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Have you completed the first survey for Connect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_first
+```
+
+### Question 17 Table
+```{r, echo = FALSE}
+data_survey_not_first = as.data.frame(table((data_survey$why_not_first_survey)))
+data_survey_not_first$percentage = data_survey_not_first$Freq/sum(data_survey_not_first$Freq)*100
+data_survey_not_first$Var1= factor(data_survey_not_first$Var1)
+gt_not_first = data_survey_not_first %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Have you completed the first survey for Connect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_not_first
+```
+
+### Question 18 Table
+```{r, echo = FALSE}
+data_survey_length1 = as.data.frame(table((data_survey$length_first_survey)))
+data_survey_length1$percentage = data_survey_length1$Freq/sum(data_survey_length1$Freq)*100
+data_survey_length1$Var1= factor(data_survey_length1$Var1, levels = c("Too long", "Just long enough", "Not long enough"))
+gt_length1 = data_survey_length1 %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "What do you think about the length of the first survey?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_length1
+```
+
+
+### Question 20 Table
+```{r, echo = FALSE}
+data_survey_biospec = as.data.frame(table((data_survey$biospecimen_donation)))
+data_survey_biospec$percentage = data_survey_biospec$Freq/sum(data_survey_biospec$Freq)*100
+data_survey_biospec$Var1= factor(data_survey_biospec$Var1, levels = c("Yes", "No", "Unsure"))
+gt_biospec = data_survey_biospec %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "What do you think about the length of the first survey?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec
+```
+
+
+### Question 20 Table
+```{r, echo = FALSE}
+data_survey_biospec = as.data.frame(table((data_survey$biospecimen_donation)))
+data_survey_biospec$percentage = data_survey_biospec$Freq/sum(data_survey_biospec$Freq)*100
+data_survey_biospec$Var1= factor(data_survey_biospec$Var1, levels = c("Yes", "No", "Unsure"))
+gt_biospec = data_survey_biospec %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "What do you think about the length of the first survey?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec
+```
+
+### Question 21 Table
+```{r, echo = FALSE}
+data_survey_biospec_com = as.data.frame(table((data_survey$comms_biospeciment_donation)))
+data_survey_biospec_com$percentage = data_survey_biospec_com$Freq/sum(data_survey_biospec_com$Freq)*100
+data_survey_biospec_com$Var1= factor(data_survey_biospec_com$Var1, levels = c("Very well", "Well", "Neutral", "Poor", "Very poor"))
+gt_biospec_com = data_survey_biospec_com %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "How well did the Connect team communicate with you about donating samples?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec_com
+```
+
+
+### Question 22 Table
+```{r, echo = FALSE}
+data_survey_bs_time = as.data.frame(table((data_survey$time_biospecimen_donation)))
+data_survey_bs_time$percentage = data_survey_bs_time$Freq/sum(data_survey_bs_time$Freq)*100
+data_survey_bs_time$Var1= factor(data_survey_bs_time$Var1, levels = c("Too much time", "Right amount of time", "Too little time"))
+gt_biospec_time = data_survey_bs_time %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "How would you rate your experience donating samples? (Time)") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec_time
+```
+
+### Question 23 Table
+```{r, echo = FALSE}
+data_survey_bs_ease = as.data.frame(table((data_survey$ease_donating_samples)))
+data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/sum(data_survey_bs_ease$Freq)*100
+data_survey_bs_ease$Var1= factor(data_survey_bs_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+gt_biospec_ease = data_survey_bs_ease %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "How would you rate your experience donating samples? (Ease)") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec_ease
+```
+
+### Question 24 Table
+```{r, echo = FALSE}
+data_survey_bs_exp = as.data.frame(table((data_survey$exp_dontating_samples)))
+data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/sum(data_survey_bs_exp$Freq)*100
+data_survey_bs_exp$Var1= factor(data_survey_bs_exp$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+gt_biospec_exp = data_survey_bs_exp %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "How was your experience with the Connect team when you donated samples?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_biospec_exp
+```
+
+### Question 26 Table
+```{r, echo = FALSE}
+data_survey_ss_comp = as.data.frame(table((data_survey$sample_survey_completion)))
+data_survey_ss_comp$percentage = data_survey_ss_comp$Freq/sum(data_survey_ss_comp$Freq)*100
+data_survey_ss_comp$Var1= factor(data_survey_ss_comp$Var1, levels = c("Yes", "No", "Unsure"))
+gt_ss_comp = data_survey_ss_comp %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Did you complete the sample survey on MyConnect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_comp
+```
+
+
+### Question 26 Table
+```{r, echo = FALSE}
+data_survey_ss_con = as.data.frame(table((data_survey$at_visit_sample_survey)))
+data_survey_ss_con$percentage = data_survey_ss_con$Freq/sum(data_survey_ss_con$Freq)*100
+data_survey_ss_con$Var1= factor(data_survey_ss_con$Var1, levels = c("Yes", "No", "Unsure"))
+gt_ss_con = data_survey_ss_con %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Did you complete the sample survey on MyConnect?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_con
+```
+
+
+### Question 29 Table
+```{r, echo = FALSE}
+data_survey_ss_not = as.data.frame(table((data_survey$why_not_sample_survey)))
+data_survey_ss_not$percentage = data_survey_ss_not$Freq/sum(data_survey_ss_not$Freq)*100
+data_survey_ss_not$Var1= factor(data_survey_ss_not$Var1)
+gt_ss_not = data_survey_ss_not %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Please choose the reason that fits best to describe why you have not completed the sample survey") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_not
+```
+
+### Question 31 Table
+```{r, echo = FALSE}
+data_survey_lengthpref = as.data.frame(table((data_survey$survey_length_pref)))
+data_survey_lengthpref$percentage = data_survey_lengthpref$Freq/sum(data_survey_lengthpref$Freq)*100
+data_survey_lengthpref$Var1= factor(data_survey_lengthpref$Var1, levels = c("Longer surveys, sent less often", "Shorter surveys, sent more often ", "I don’t have a preference for survey length and frequency"))
+gt_ss_not = data_survey_lengthpref %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "In general, would you prefer to complete:") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_not
+```
+
+### Question 32 Table
+```{r, echo = FALSE}
+data_survey_overall = as.data.frame(table((data_survey$overall_experience)))
+data_survey_overall$percentage = data_survey_overall$Freq/sum(data_survey_overall$Freq)*100
+data_survey_overall$Var1= factor(data_survey_overall$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+gt_ss_overall = data_survey_overall %>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "In general, would you prefer to complete:") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_overall
+```
+
+### Question 33 Table
+```{r, echo = FALSE}
+# Create the table and convert to data frame
+count_cancer_personal_impact <- table(data_survey$why_joined_cancer_personal_impact)
+count_cancer_research <- table(data_survey$why_joined_cancer_research)
+count_friend_involved <- table(data_survey$why_joined_friend_involved)
+count_hc_system_rep <- table(data_survey$why_joined_hc_system_rep)
+count_like_research <- table(data_survey$why_joined_like_research)
+count_nci <- table(data_survey$why_joined_nci)
+count_team <- table(data_survey$why_joined_team)
+count_payment <- table(data_survey$why_joined_payment)
+count_helping <- table(data_survey$why_joined_help_other)
+
+table_why = as.data.frame(cbind(
+  count_cancer_personal_impact, 
+  count_cancer_research, 
+  count_friend_involved, 
+  count_hc_system_rep, 
+  count_like_research, 
+  count_nci, 
+  count_team,
+  count_payment,
+  count_helping
+))
+
+# Rename the columns
+colnames(table_why) <- c(
+  "Cancer Personal Impact", 
+  "Cancer Research", 
+  "Friend Involved", 
+  "Healthcare System Rep", 
+  "Like Research", 
+  "NCI", 
+  "Team",
+  "Payment",
+  "Helping"
+)
+
+# Add row labels (Yes, No)
+rownames(table_why) <- c("Not Selected", "Selected")
+
+# Create the gt table with a title and formatted labels
+gt_why <- table_why %>%
+  gt::gt(rownames_to_stub = TRUE) %>%
+  tab_header(
+    title = md("**Please select the top three reasons that helped you decide
+to join Connect.**")
+  ) %>%
+  cols_label(
+    `Cancer Personal Impact` = md("**Cancer has affected someone I know**"),
+    `Cancer Research` = md("**I care about cancer research**"),
+    `Friend Involved` = md("**I have a friend or family member who is involved in Connect**"),
+    `Healthcare System Rep` = md("**My healthcare system has a good reputation for research**"),
+    `Like Research` = md("**I like participating in research studies**"),
+    `NCI` = md("**The NCI has a good reputation for research**"),
+    `Team` = md("**The research team made me feel comfortable**"),
+    `Payment` = md("**I want to earn the payment**"),
+    `Helping` = md("**I want to help others**")
+  )
+
+# Display the gt table
+gt_why
+
+```
+
+## Device Questions
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql_dev <- glue(
+  "
+                        SELECT 
+                D_260186214 AS device,
+                D_470013848_D_495052121 AS phone_other, 
+                D_470013848_D_470013848_d_807835037 AS phone_iphone, 
+                D_470013848_D_470013848_d_358413399 AS phone_android, 
+                D_470013848_D_470013848_d_178420302 AS phone_unknown,
+                D_731524314_D_731524314_d_115959973 AS tablet_pixel, 
+                D_731524314_D_731524314_d_132115595 AS tablet_surface, 
+                D_731524314_D_731524314_d_178420302 AS tablet_unknown, 
+                D_731524314_D_731524314_d_238237869 AS tablet_galaxy, 
+                D_731524314_D_731524314_d_299722216 AS tablet_fire, 
+                D_731524314_D_731524314_d_515798638 AS tablet_ipad, 
+                D_731524314_D_731524314_d_985034149 AS tablet_lenovo,
+                D_731524314_D_638847244 AS tablet_other,
+                D_403175318_D_403175318_d_178420302 AS computer_unknown, 
+                D_403175318_D_403175318_d_200962909 AS computer_chromebook, 
+                D_403175318_D_403175318_d_554920493 AS computer_pc, 
+                D_403175318_D_403175318_d_798682161 AS computer_mac, 
+                D_403175318_D_403175318_d_807835037 AS computer_chromebook,
+                D_403175318_D_507471937 AS other_computer,
+                D_210120853_d_191667117 AS connect_prov_healthcare, 
+                D_210120853_d_217279879 AS connect_borrow, 
+                D_210120853_d_299631230 AS connect_public, 
+                D_210120853_d_572976454 AS connect_yes, 
+                D_210120853_d_916319911 AS connect_yes_emp,
+                D_649713579_d_147611720 AS samp_prov_healthcare, 
+                D_649713579_d_354508982 AS samp_borrow, 
+                D_649713579_d_588555669 AS samp_public, 
+                D_649713579_d_834694858 AS samp_yes, 
+                D_649713579_d_899315984 AS samp_yes_emp
+            FROM 
+                `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`;
+
+            ")
+
+# Query the data and store as reference object
+data_dev <- dbGetQuery(con_completion, sql_dev)
+```
+
+## Download
+```{r, echo = FALSE}
+data_dev <- data_dev %>% 
+  collect()
+```
+
+### Connect Ownership of Device
+```{r}
+prov_healthcare = table(data_dev$connect_prov_healthcare)
+borrow = table(data_dev$connect_borrow)
+public = table(data_dev$connect_public)
+yes = table(data_dev$connect_yes)
+yes_emp = table(data_dev$connect_yes_emp)
+connect_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+# Rename the columns of connect_devices
+colnames(connect_devices) <- c(
+  "No, provided by healthcare provider", 
+  "No, borrow from family/friend", 
+  "No, public", 
+  "Yes", 
+  "Yes, employer provided"
+)
+
+# Add custom row labels
+rownames(connect_devices) <- c("Not selected", "Selected")
+
+# Convert to a table using gt
+gt_connect_dev <- connect_devices %>%
+  gt::gt(rownames_to_stub = TRUE) %>%
+  tab_header(title = "Device Connection Sources") # Optional title
+
+# Print the table
+gt_connect_dev
+```
+
+### Device Type
+```{r}
+data_dev$device = as.factor(data_dev$device)
+data_dev$device = gsub ('482753957', 'Phone', data_dev$device)
+data_dev$device = gsub ('358413399', 'Phone', data_dev$device)
+data_dev$device = gsub ('793072415', 'Phone', data_dev$device)
+data_dev$device = gsub ('515798638', 'Tablet', data_dev$device)
+data_dev$device = gsub ('132115595', 'Tablet', data_dev$device)
+data_dev$device = gsub ('299722216', 'Tablet', data_dev$device)
+data_dev$device = gsub ('115959973', 'Tablet', data_dev$device)
+data_dev$device = gsub ('238237869', 'Tablet', data_dev$device)
+data_dev$device = gsub ('985034149', 'Tablet', data_dev$device)
+data_dev$device = gsub ('401230883', 'Tablet', data_dev$device)
+data_dev$device = gsub ('798682161', 'Computer', data_dev$device)
+data_dev$device = gsub ('554920493', 'Computer', data_dev$device)
+data_dev$device = gsub ('200962909', 'Computer', data_dev$device)
+data_dev$device = gsub ('320254475', 'Computer', data_dev$device)
+```
+
+```{r}
+data_devicetype = as.data.frame(table((data_dev$device)))
+data_devicetype$percentage = data_devicetype$Freq/sum(data_devicetype$Freq)*100
+data_devicetype$Var1= factor(data_devicetype$Var1)
+gt_ss_not = data_devicetype%>%
+  arrange(Var1) %>%
+  gt::gt() %>%
+  tab_header(title = "Which device do you use to access MyConnect most of the time?") %>% 
+  fmt_number(columns = "percentage", decimals = 2) %>%
+  cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
+gt_ss_not
+```
+
+
+
+
+
+
