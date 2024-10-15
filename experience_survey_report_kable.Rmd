@@ -1,0 +1,664 @@
+---
+title: "Experience Survey Report"
+author: "Leila Orszag"
+date: "Data Extracted and Report Ran: `r Sys.Date()`"
+header-includes:  
+    \usepackage[labelformat=empty]{caption}
+    \usepackage{placeins}
+    \usepackage{booktabs}
+    \usepackage{pdflscape}
+
+
+output:
+  pdf_document:
+      extra_dependencies: ["float"]
+      toc: false
+      df_print: paged 
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+# Setup
+dataset <- "FlatConnect"
+table   <- "participants_JP"
+tier    <- "prod"
+project <- switch(tier,
+                  dev  = "nih-nci-dceg-connect-dev",
+                  stg  = "nih-nci-dceg-connect-stg-5519",
+                  prod = "nih-nci-dceg-connect-prod-6d04")
+
+billing <- project
+
+# Libraries
+library(dplyr)
+library(DBI)
+library(bigrquery)
+library(glue)
+library(gt)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+bq_auth() # Authenticate with BigQuery
+con_completion <- dbConnect(bigrquery::bigquery(), 
+                            project=project, 
+                            dataset=dataset, 
+                            billing=billing)
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE,
+  echo = TRUE,  # Show code or hide with FALSE
+  fig.width = 7, fig.height = 5  # Adjust figure/table sizing
+)
+```
+
+```{r, echo = FALSE}
+# Pulling data
+sql <- glue(
+  "
+              SELECT d_956490759
+              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+            ")
+
+# Query the data and store as reference object
+data_completion <- dbGetQuery(con_completion, sql)
+
+# Pull counts
+data_completion <- data_completion %>%
+  count(d_956490759) %>%
+  mutate (survey_completion = case_when(d_956490759 == '972455046'  ~ 'Not Started',
+                                        d_956490759 == '615768760' ~ 'Started',
+                                        d_956490759 == '231311385' ~ 'Submitted')) %>%
+  collect()
+
+total_eligible = sum(data_completion$n[1:3])
+data_completion$percentage = data_completion$n/(total_eligible)*100
+data_completion = data_completion[1:3, ]
+```
+
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql2 <- glue(
+  "
+              SELECT 
+                  D_260186214 as device_my_connect,
+                  D_875017278 as my_connect_ease,
+                  D_630940888 as technical_issues,
+                  D_646060480 as finding_my_connect,
+                  D_124830305 as comms,
+                  D_646060480 as info_needed,
+                  D_586132480 as first_survey_completion,
+                  D_886084185_D_886084185 as why_not_first_survey,
+                  D_945546878 as length_first_survey,
+                  D_472709337 as biospecimen_donation,
+                  D_890945599 as comms_biospeciment_donation,
+                  D_465287908 as time_biospecimen_donation,
+                  D_956625094 as ease_donating_samples,
+                  D_476960744 as exp_dontating_samples,
+                  D_307813936 as sample_survey_completion,
+                  D_800057241 as at_visit_sample_survey,
+                  D_943119849_D_943119849 as why_not_sample_survey,
+                  D_482763096 as survey_length_pref,
+                  D_176469609 as overall_experience,
+                  D_960544981_d_101837333 as why_joined_nci, 
+                  D_960544981_d_313446770 as why_joined_team, 
+                  D_960544981_d_393996571 as why_joined_cancer_research, 
+                  D_960544981_d_490731188 as why_joined_hc_system_rep, 
+                  D_960544981_d_604524950 as why_joined_cancer_personal_impact, 
+                  D_960544981_d_815468840 as why_joined_like_research, 
+                  D_960544981_d_847753225 as why_joined_payment, 
+                  D_960544981_d_925993577 as why_joined_help_other,
+                  D_960544981_d_985468594 as why_joined_friend_involved
+                  
+              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`
+            ")
+
+# Query the data and store as reference object
+data_survey <- dbGetQuery(con_completion, sql2)
+
+# download the data
+data_survey<- data_survey %>%
+  collect()
+
+# relabel concept IDS
+data_survey[] <- lapply(data_survey, function(x) {
+  if (is.character(x)) {
+    x <- gsub("353358909", "Yes", x)
+    x <- gsub("104430631", "No", x)
+    x <- gsub("242016061", "Too many", x)
+    x <- gsub("185898646", "Just enough", x)
+    x <- gsub("803970496", "Not enough", x)
+    x <- gsub("178420302", "Unsure", x)
+    x <- gsub("198030665", "Yes, completed all", x)
+    x <- gsub("687057737", "Yes, completed some", x)
+    x <- gsub("333628672", "No, completed none", x)
+    x <- gsub("807574160", "Very easy", x)
+    x <- gsub("371268341", "Very easy", x)
+    x <- gsub("417633823", "Easy", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("940801246", "Hard", x)
+    x <- gsub("527229910", "Very hard", x)
+    x <- gsub("117258272", "I cannot find the survey", x)
+    x <- gsub("773860876", "I am having technical issues", x)
+    x <- gsub("551201830", "I don't have time", x)
+    x <- gsub("205790732", "I don't feel comfortable answering the survey questions", x)
+    x <- gsub("701389038", "I have connectivity issues", x)
+    x <- gsub("807835037", "Other", x)
+    x <- gsub("948464607", "Too long", x)
+    x <- gsub("537785073", "Just long enough", x)
+    x <- gsub("672312050", "Not long enough", x)
+    x <- gsub("254017984", "Very well", x)
+    x <- gsub("604455183", "Well", x)
+    x <- gsub("565881164", "Very good", x)
+    x <- gsub("719933364", "Good", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("138752522", "Poor", x)
+    x <- gsub("878535894", "Very poor", x)
+    x <- gsub("777433416", "Too much time", x)
+    x <- gsub("589724105", "Right amount of time", x)
+    x <- gsub("576052130", "Too little time", x)
+    x <- gsub("588529567", "Longer surveys, sent less often", x)
+    x <- gsub("628115953", "Shorter surveys, sent more often", x)
+    x <- gsub("267441074", "I don’t have a preference for survey length and frequency", x)
+  }
+  return(x)
+})
+```
+
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql_dev <- glue(
+  "
+                        SELECT 
+                D_260186214 AS device,
+                D_470013848_D_495052121 AS phone_other, 
+                D_470013848_D_470013848_d_807835037 AS phone_iphone, 
+                D_470013848_D_470013848_d_358413399 AS phone_android, 
+                D_470013848_D_470013848_d_178420302 AS phone_unknown,
+                D_731524314_D_731524314_d_115959973 AS tablet_pixel, 
+                D_731524314_D_731524314_d_132115595 AS tablet_surface, 
+                D_731524314_D_731524314_d_178420302 AS tablet_unknown, 
+                D_731524314_D_731524314_d_238237869 AS tablet_galaxy, 
+                D_731524314_D_731524314_d_299722216 AS tablet_fire, 
+                D_731524314_D_731524314_d_515798638 AS tablet_ipad, 
+                D_731524314_D_731524314_d_985034149 AS tablet_lenovo,
+                D_731524314_D_638847244 AS tablet_other,
+                D_403175318_D_403175318_d_178420302 AS computer_unknown, 
+                D_403175318_D_403175318_d_200962909 AS computer_chromebook, 
+                D_403175318_D_403175318_d_554920493 AS computer_pc, 
+                D_403175318_D_403175318_d_798682161 AS computer_mac, 
+                D_403175318_D_403175318_d_807835037 AS computer_chromebook,
+                D_403175318_D_507471937 AS other_computer,
+                D_210120853_d_191667117 AS connect_borrow, 
+                D_210120853_d_217279879 AS connect_public, 
+                D_210120853_d_299631230 AS connect_yes, 
+                D_210120853_d_572976454 AS connect_prov_healthcare, 
+                D_210120853_d_916319911 AS connect_yes_emp,
+                D_649713579_d_147611720 AS samp_prov_healthcare, 
+                D_649713579_d_354508982 AS samp_borrow, 
+                D_649713579_d_588555669 AS samp_public, 
+                D_649713579_d_834694858 AS samp_yes, 
+                D_649713579_d_899315984 AS samp_yes_emp,
+                D_145727599_d_153962804 AS device_tablet, 
+                D_145727599_d_188067494 AS device_computer, 
+                D_145727599_d_386252749 AS device_phone 
+            FROM 
+                `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`;
+
+            ")
+
+# Query the data and store as reference object
+data_dev <- dbGetQuery(con_completion, sql_dev)
+
+data_dev <- data_dev %>% 
+  collect()
+```
+
+```{r, echo = FALSE}
+device_phone = table(data_dev$device_phone)
+device_tablet = table(data_dev$device_tablet)
+device_computer = table(data_dev$device_computer)
+device_basic = as.data.frame(cbind(device_phone, device_tablet, device_computer))
+# Rename the columns of connect_devices
+colnames(device_basic) <- c(
+  "Phone", 
+  "Tablet", 
+  "Computer"
+)
+
+# Add custom row labels
+rownames(device_basic) <- c("Not selected", "Selected")
+
+gt_dev_basic = as.data.frame(device_basic)
+# Print the table
+knitr::kable(gt_dev_basic, 
+             caption='Which types of devices do you use for MyConnect?', 
+             row.names=FALSE,
+             align=c("l","c","c","c","c","c"), 
+             booktabs = TRUE)  %>% 
+  kable_styling(latex_options = "scale_down")
+```
+
+```{r, echo= FALSE}
+prov_healthcare = table(data_dev$connect_prov_healthcare)
+borrow = table(data_dev$connect_borrow)
+public = table(data_dev$connect_public)
+yes = table(data_dev$connect_yes)
+yes_emp = table(data_dev$connect_yes_emp)
+connect_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+
+# Rename the columns of connect_devices
+colnames(connect_devices) <- c(
+  "No, provided by healthcare provider", 
+  "No, borrow from family/friend", 
+  "No, public", 
+  "Yes", 
+  "Yes, employer provided"
+)
+
+# Add custom row labels
+rownames(connect_devices) <- c("Not selected", "Selected")
+
+#You may or may not need to convert it into a df to be able to run a kable table, depending on your data structure
+gt_connect_dev <- as.data.frame(connect_devices)
+
+#Actual kable table
+knitr::kable(gt_connect_dev, 
+             caption='Do you use your own personal device to access MyConnect?', 
+             row.names=FALSE,
+             align=c("l","c","c","c","c","c","c","c","c","c"), 
+             booktabs = TRUE)  %>% 
+  kable_styling(latex_options = "scale_down")
+```
+
+```{r, echo= FALSE}
+data_survey_ease = as.data.frame(table((data_survey$my_connect_ease)))
+data_survey_ease$percentage = data_survey_ease$Freq/sum(data_survey_ease$Freq)*100
+data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+data_survey_ease = as.data.frame(data_survey_ease)
+# Create kable table
+kable_ease <- data_survey_ease %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"), caption='How easy or hard is it to use MyConnect?') %>%  # Align first column left, others center
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_ease
+```
+
+```{r, echo= FALSE}
+data_survey_tech = as.data.frame(table((data_survey$technical_issues)))
+data_survey_tech$percentage = data_survey_tech$Freq/sum(data_survey_tech$Freq)*100
+data_survey_tech$Var1= factor(data_survey_tech$Var1, levels = c("Yes", "No"))
+kable_tech <- data_survey_tech %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, col.names = c("Response", "Number of Participants", "Percentage of Participants"),   align = c("l", "c", "c","c","c","c"), caption = "Have you experienced technical problems?") %>%
+  kable_styling(latex_options = "hold_position") %>%
+  add_header_above(c("Have you experienced technical problems?" = 3))
+
+
+# Print the table
+kable_tech
+```
+
+```{r, echo = FALSE}
+data_survey_find = as.data.frame(table((data_survey$finding_my_connect)))
+data_survey_find$percentage = data_survey_find$Freq/sum(data_survey_find$Freq)*100
+data_survey_find$Var1= factor(data_survey_find$Var1, levels = c("Yes", "No"))
+# Create kable table
+kable_find <- data_survey_find %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Are you able to find everything you are looking for on MyConnect?") %>%  # Left-align first column, center-align others
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_find
+```
+
+```{r, echo = FALSE}
+data_survey_comms = as.data.frame(table((data_survey$comms)))
+data_survey_comms$percentage = data_survey_comms$Freq/sum(data_survey_comms$Freq)*100
+data_survey_comms$Var1= factor(data_survey_comms$Var1, levels = c("Too many", "Just enough", "Not enough"))
+kable_comms <- data_survey_comms %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "What do you think about the number of communications you get from the Connect team?") %>%  # Add caption
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_comms
+```
+
+
+```{r, echo = FALSE}
+data_survey_info_needed = as.data.frame(table((data_survey$info_needed)))
+data_survey_info_needed$percentage = data_survey_info_needed$Freq/sum(data_survey_info_needed$Freq)*100
+data_survey_info_needed$Var1= factor(data_survey_info_needed$Var1, levels = c("Yes", "No", "Unsure"))
+kable_info <- data_survey_info_needed %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Do the Connect communications give you the information you need to complete study tasks?") %>%  # Add caption
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_info
+```
+
+```{r, echo = FALSE}
+data_survey_first = as.data.frame(table((data_survey$first_survey_completion)))
+data_survey_first$percentage = data_survey_first$Freq/sum(data_survey_first$Freq)*100
+data_survey_first$Var1= factor(data_survey_first$Var1, levels = c("Yes, completed all", "Yes, completed some", "No, completed none", "Unsure"))
+kable_first <- data_survey_first %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Have you completed the first survey for Connect?") %>%  # Add caption
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_first
+```
+
+```{r, echo = FALSE}
+data_survey_not_first = as.data.frame(table((data_survey$why_not_first_survey)))
+data_survey_not_first$percentage = data_survey_not_first$Freq/sum(data_survey_not_first$Freq)*100
+data_survey_not_first$Var1= factor(data_survey_not_first$Var1)
+kable_not_first <- data_survey_not_first %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Have you completed the first survey for Connect?") %>%  # Add caption
+  kable_styling(latex_options = c("hold_position", "scale_down"))  # Add scale down option
+
+# Print the table
+kable_not_first
+```
+
+```{r, echo = FALSE}
+data_survey_length1 = as.data.frame(table((data_survey$length_first_survey)))
+data_survey_length1$percentage = data_survey_length1$Freq/sum(data_survey_length1$Freq)*100
+data_survey_length1$Var1= factor(data_survey_length1$Var1, levels = c("Too long", "Just long enough", "Not long enough"))
+kable_length1 <- data_survey_length1 %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "What do you think about the length of the first survey?") %>%  # Add caption
+  kable_styling(latex_options = "hold_position")  # Keep table in position without scaling down
+
+# Print the table
+kable_length1
+```
+
+```{r, echo = FALSE}
+# Table 1: Biospecimen Donation
+data_survey_biospec = as.data.frame(table((data_survey$biospecimen_donation)))
+data_survey_biospec$percentage = data_survey_biospec$Freq/sum(data_survey_biospec$Freq)*100
+data_survey_biospec$Var1 = factor(data_survey_biospec$Var1, levels = c("Yes", "No", "Unsure"))
+kable_biospec = data_survey_biospec %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "What do you think about the length of the first survey?") %>%
+  kable_styling(latex_options = "hold_position")
+kable_biospec
+
+```
+
+```{r, echo = FALSE}
+# Table 2: Communication About Biospecimen Donation
+data_survey_biospec_com = as.data.frame(table((data_survey$comms_biospeciment_donation)))
+data_survey_biospec_com$percentage = data_survey_biospec_com$Freq/sum(data_survey_biospec_com$Freq)*100
+data_survey_biospec_com$Var1 = factor(data_survey_biospec_com$Var1, levels = c("Very well", "Well", "Neutral", "Poor", "Very poor"))
+kable_biospec_com = data_survey_biospec_com %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "How well did the Connect team communicate with you about donating samples?") %>%
+  kable_styling(latex_options = "hold_position")
+kable_biospec_com
+```
+
+```{r, echo = FALSE}
+# Table 3: Time for Biospecimen Donation
+data_survey_bs_time = as.data.frame(table((data_survey$time_biospecimen_donation)))
+data_survey_bs_time$percentage = data_survey_bs_time$Freq/sum(data_survey_bs_time$Freq)*100
+data_survey_bs_time$Var1 = factor(data_survey_bs_time$Var1, levels = c("Too much time", "Right amount of time", "Too little time"))
+kable_biospec_time = data_survey_bs_time %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "How would you rate your experience donating samples? (Time)") %>%
+  kable_styling(latex_options = "hold_position")
+kable_biospec_time
+
+```
+
+```{r, echo = FALSE}
+# Table 4: Ease of Donating Samples
+data_survey_bs_ease = as.data.frame(table((data_survey$ease_donating_samples)))
+data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/sum(data_survey_bs_ease$Freq)*100
+data_survey_bs_ease$Var1 = factor(data_survey_bs_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+kable_biospec_ease = data_survey_bs_ease %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "How would you rate your experience donating samples? (Ease)") %>%
+  kable_styling(latex_options = "hold_position")
+kable_biospec_ease
+
+```
+
+```{r, echo = FALSE}
+# Table 5: Experience with the Connect Team
+data_survey_bs_exp = as.data.frame(table((data_survey$exp_dontating_samples)))
+data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/sum(data_survey_bs_exp$Freq)*100
+data_survey_bs_exp$Var1 = factor(data_survey_bs_exp$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+kable_biospec_exp = data_survey_bs_exp %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "How was your experience with the Connect team when you donated samples?") %>%
+  kable_styling(latex_options = "hold_position")
+kable_biospec_exp
+
+```
+
+```{r, echo = FALSE}
+# Table 6: Sample Survey Completion
+data_survey_ss_comp = as.data.frame(table((data_survey$sample_survey_completion)))
+data_survey_ss_comp$percentage = data_survey_ss_comp$Freq/sum(data_survey_ss_comp$Freq)*100
+data_survey_ss_comp$Var1 = factor(data_survey_ss_comp$Var1, levels = c("Yes", "No", "Unsure"))
+kable_ss_comp = data_survey_ss_comp %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Did you complete the sample survey on MyConnect?") %>%
+  kable_styling(latex_options = "hold_position")
+kable_ss_comp
+
+```
+
+```{r, echo = FALSE}
+# Table 7: Sample Survey Completion at Visit
+data_survey_ss_con = as.data.frame(table((data_survey$at_visit_sample_survey)))
+data_survey_ss_con$percentage = data_survey_ss_con$Freq/sum(data_survey_ss_con$Freq)*100
+data_survey_ss_con$Var1 = factor(data_survey_ss_con$Var1, levels = c("Yes", "No", "Unsure"))
+kable_ss_con = data_survey_ss_con %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Did you complete the sample survey at your Connect visit?") %>%
+  kable_styling(latex_options = "hold_position")
+kable_ss_con
+```
+
+```{r, echo = FALSE}
+```{r, echo = FALSE}
+# Table 8: Personal Device Usage for Sample Survey
+prov_healthcare = table(data_dev$samp_prov_healthcare)
+borrow = table(data_dev$samp_borrow)
+public = table(data_dev$samp_public)
+yes = table(data_dev$samp_yes)
+yes_emp = table(data_dev$samp_yes_emp)
+
+samp_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+colnames(samp_devices) <- c(
+  "No, provided by healthcare provider", 
+  "No, borrow from family/friend", 
+  "No, public", 
+  "Yes", 
+  "Yes, employer provided"
+)
+rownames(samp_devices) <- c("Not selected", "Selected")
+
+kable_samp_dev = samp_devices %>%
+  kable("latex", booktabs = TRUE, 
+        align = c("l", "c", "c", "c", "c"),
+        caption = "Did you use your own personal device to complete the sample survey? Select all that apply.") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"))
+
+# Print the table
+kable_samp_dev
+```
+
+
+```{r, echo = FALSE}
+# Table 9: Reasons for Not Completing Sample Survey
+data_survey_ss_not = as.data.frame(table((data_survey$why_not_sample_survey)))
+data_survey_ss_not$percentage = data_survey_ss_not$Freq/sum(data_survey_ss_not$Freq)*100
+data_survey_ss_not$Var1 = factor(data_survey_ss_not$Var1)
+kable_ss_not = data_survey_ss_not %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "Please choose the reason that fits best to describe why you have not completed the sample survey.") %>%
+  kable_styling(latex_options = "hold_position")
+kable_ss_not
+```
+
+```{r, echo = FALSE}
+# Table 10: Length of the Survey
+data_survey_length1 = as.data.frame(table(data_survey$length_first_survey))
+data_survey_length1$percentage = data_survey_length1$Freq / sum(data_survey_length1$Freq) * 100
+data_survey_length1$Var1 = factor(data_survey_length1$Var1, levels = c("Too short", "Just right", "Too long"))
+
+kable_length1 <- data_survey_length1 %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "What do you think about the length of the first survey?") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_length1
+```
+
+```{r, echo = FALSE}
+# Table: Overall Experience
+data_survey_overall = as.data.frame(table((data_survey$overall_experience)))
+data_survey_overall$percentage = data_survey_overall$Freq / sum(data_survey_overall$Freq) * 100
+data_survey_overall$Var1 = factor(data_survey_overall$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+
+kable_overall = data_survey_overall %>%
+  arrange(Var1) %>%
+  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        align = c("l", "c", "c"),
+        caption = "How would you rate your overall experience?") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the table
+kable_overall
+```
+
+```{r, echo = FALSE}
+# Create the table and convert to data frame
+count_cancer_personal_impact <- table(data_survey$why_joined_cancer_personal_impact)
+count_cancer_research <- table(data_survey$why_joined_cancer_research)
+count_friend_involved <- table(data_survey$why_joined_friend_involved)
+count_hc_system_rep <- table(data_survey$why_joined_hc_system_rep)
+count_like_research <- table(data_survey$why_joined_like_research)
+count_nci <- table(data_survey$why_joined_nci)
+count_team <- table(data_survey$why_joined_team)
+count_payment <- table(data_survey$why_joined_payment)
+count_helping <- table(data_survey$why_joined_help_other)
+
+table_why = as.data.frame(cbind(
+  count_cancer_personal_impact, 
+  count_cancer_research, 
+  count_friend_involved, 
+  count_hc_system_rep, 
+  count_like_research, 
+  count_nci, 
+  count_team,
+  count_payment,
+  count_helping
+))
+
+# Rename the columns
+colnames(table_why) <- c(
+  "Cancer Personal Impact", 
+  "Cancer Research", 
+  "Friend Involved", 
+  "Healthcare System Rep", 
+  "Like Research", 
+  "NCI", 
+  "Team",
+  "Payment",
+  "Helping"
+)
+
+# Add row labels (Yes, No)
+rownames(table_why) <- c("Not Selected", "Selected")
+
+# Create the Kable table with a caption and landscape format
+kable_why <- knitr::kable(table_why, 
+                           caption = 'Please select the top three reasons that helped you decide to join Connect.', 
+                           row.names = TRUE, 
+                           align = c("l", rep("c", ncol(table_why) - 1)), 
+                           booktabs = TRUE, 
+                           format = "latex", 
+                           longtable = FALSE) %>% 
+  kableExtra::kable_styling(latex_options = c("hold_position", "landscape", "scale_down")) %>%
+  kableExtra::kable_styling(font_size = 10)
+
+# Print the Kable table
+kable_why
+```
+

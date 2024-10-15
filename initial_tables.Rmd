@@ -389,7 +389,7 @@ gt_ss_comp
 ```
 
 
-### Question 26 Table
+### Question 27 Table
 ```{r, echo = FALSE}
 data_survey_ss_con = as.data.frame(table((data_survey$at_visit_sample_survey)))
 data_survey_ss_con$percentage = data_survey_ss_con$Freq/sum(data_survey_ss_con$Freq)*100
@@ -446,7 +446,7 @@ gt_ss_overall = data_survey_overall %>%
 gt_ss_overall
 ```
 
-### Question 33 Table
+### Question 35 Table
 ```{r, echo = FALSE}
 # Create the table and convert to data frame
 count_cancer_personal_impact <- table(data_survey$why_joined_cancer_personal_impact)
@@ -536,16 +536,19 @@ sql_dev <- glue(
                 D_403175318_D_403175318_d_798682161 AS computer_mac, 
                 D_403175318_D_403175318_d_807835037 AS computer_chromebook,
                 D_403175318_D_507471937 AS other_computer,
-                D_210120853_d_191667117 AS connect_prov_healthcare, 
-                D_210120853_d_217279879 AS connect_borrow, 
-                D_210120853_d_299631230 AS connect_public, 
-                D_210120853_d_572976454 AS connect_yes, 
+                D_210120853_d_191667117 AS connect_borrow, 
+                D_210120853_d_217279879 AS connect_public, 
+                D_210120853_d_299631230 AS connect_yes, 
+                D_210120853_d_572976454 AS connect_prov_healthcare, 
                 D_210120853_d_916319911 AS connect_yes_emp,
                 D_649713579_d_147611720 AS samp_prov_healthcare, 
                 D_649713579_d_354508982 AS samp_borrow, 
                 D_649713579_d_588555669 AS samp_public, 
                 D_649713579_d_834694858 AS samp_yes, 
-                D_649713579_d_899315984 AS samp_yes_emp
+                D_649713579_d_899315984 AS samp_yes_emp,
+                D_145727599_d_153962804 AS device_tablet, 
+                D_145727599_d_188067494 AS device_computer, 
+                D_145727599_d_386252749 AS device_phone 
             FROM 
                 `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`;
 
@@ -569,6 +572,7 @@ public = table(data_dev$connect_public)
 yes = table(data_dev$connect_yes)
 yes_emp = table(data_dev$connect_yes_emp)
 connect_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+
 # Rename the columns of connect_devices
 colnames(connect_devices) <- c(
   "No, provided by healthcare provider", 
@@ -577,6 +581,7 @@ colnames(connect_devices) <- c(
   "Yes", 
   "Yes, employer provided"
 )
+
 
 # Add custom row labels
 rownames(connect_devices) <- c("Not selected", "Selected")
@@ -588,6 +593,35 @@ gt_connect_dev <- connect_devices %>%
 
 # Print the table
 gt_connect_dev
+```
+
+### Sample Survey Ownership of Device
+```{r}
+prov_healthcare = table(data_dev$samp_prov_healthcare)
+borrow = table(data_dev$samp_borrow)
+public = table(data_dev$samp_public)
+yes = table(data_dev$samp_yes)
+yes_emp = table(data_dev$samp_yes_emp)
+samp_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+# Rename the columns of connect_devices
+colnames(samp_devices) <- c(
+  "No, provided by healthcare provider", 
+  "No, borrow from family/friend", 
+  "No, public", 
+  "Yes", 
+  "Yes, employer provided"
+)
+
+# Add custom row labels
+rownames(samp_devices) <- c("Not selected", "Selected")
+
+# Convert to a table using gt
+gt_samp_dev <- samp_devices %>%
+  gt::gt(rownames_to_stub = TRUE) %>%
+  tab_header(title = "Device Connection Sources") # Optional title
+
+# Print the table
+gt_samp_dev
 ```
 
 ### Device Type
@@ -621,6 +655,31 @@ gt_ss_not = data_devicetype%>%
   cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
 gt_ss_not
 ```
+
+```{r}
+device_phone = table(data_dev$device_phone)
+device_tablet = table(data_dev$device_tablet)
+device_computer = table(data_dev$device_computer)
+device_basic = as.data.frame(cbind(device_phone, device_tablet, device_computer))
+# Rename the columns of connect_devices
+colnames(device_basic) <- c(
+  "Phone", 
+  "Tablet", 
+  "Computer"
+)
+
+# Add custom row labels
+rownames(device_basic) <- c("Not selected", "Selected")
+
+# Convert to a table using gt
+gt_dev_basic <- device_basic %>%
+  gt::gt(rownames_to_stub = TRUE) %>%
+  tab_header(title = "Device Connection Sources") # Optional title
+
+# Print the table
+gt_dev_basic
+```
+
 
 
 
