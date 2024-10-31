@@ -16,6 +16,7 @@ output:
       df_print: paged 
 ---
 
+
 ```{r, echo = FALSE, message = FALSE, warning = FALSE}
 # Setup
 dataset <- "FlatConnect"
@@ -37,6 +38,7 @@ library(gt)
 library(ggplot2)
 library(knitr)
 library(kableExtra)
+library(scales)
 bq_auth() # Authenticate with BigQuery
 con_completion <- dbConnect(bigrquery::bigquery(), 
                             project=project, 
@@ -213,86 +215,160 @@ data_dev <- data_dev %>%
 ```
 
 ```{r, echo = FALSE}
+num_participants = dim(data_survey)[1]
+```
+
+```{r, echo = FALSE}
+# Question 1: Type of Device
 device_phone = table(data_dev$device_phone)
 device_tablet = table(data_dev$device_tablet)
 device_computer = table(data_dev$device_computer)
 device_basic = as.data.frame(cbind(device_phone, device_tablet, device_computer))
+# Calculate skipped row
+device_basic[3, ] = num_participants - device_basic[1, ] - device_basic[2, ]
+# Calculate total row
+device_basic[4, ] = device_basic[1, ] + device_basic[2, ] + device_basic[3, ]
+# Calculate percentage columns
+device_basic$phone_percent = device_basic$device_phone/num_participants*100
+device_basic$comp_percent = device_basic$device_computer/num_participants*100
+device_basic$tablet_percent = device_basic$device_tablet/num_participants*100
+# Rearrange columns
+device_basic = device_basic[, c(1,4,3,6,2,5)]
+# Format perentages
+device_basic <- device_basic %>%
+  mutate(
+    across(c(2, 4, 6), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
 # Rename the columns of connect_devices
 colnames(device_basic) <- c(
-  "Phone", 
+  "Phone",
+  "Percentage",
   "Tablet", 
-  "Computer"
+  "Percentage",
+  "Computer",
+  "Percentage"
 )
 
 # Add custom row labels
-rownames(device_basic) <- c("Not selected", "Selected")
-
+rownames(device_basic) <- c("Not selected", "Selected", "Skipped", "Total")
+device_basic = device_basic[c(2,1,3,4), ]
 gt_dev_basic = as.data.frame(device_basic)
+
 # Print the table
 knitr::kable(gt_dev_basic, 
              caption='Which types of devices do you use for MyConnect?', 
-             row.names=FALSE,
+             row.names=TRUE,
              align=c("l","c","c","c","c","c"), 
              booktabs = TRUE)  %>% 
   kable_styling(latex_options = "scale_down")
 ```
 
 ```{r, echo= FALSE}
+# Question 6: Device Ownernship
 prov_healthcare = table(data_dev$connect_prov_healthcare)
 borrow = table(data_dev$connect_borrow)
 public = table(data_dev$connect_public)
 yes = table(data_dev$connect_yes)
 yes_emp = table(data_dev$connect_yes_emp)
 connect_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
-
+# Calculate skipped
+connect_devices[3, ] = num_participants - colSums(connect_devices[1:2, ])
+# Calculate total
+connect_devices[4, ] = colSums(connect_devices[c(1:3),])
+# Calculate percentages
+connect_devices$prov_percent = connect_devices$prov_healthcare/num_participants*100
+connect_devices$borrow_percent = connect_devices$borrow/num_participants*100
+connect_devices$public_percent = connect_devices$public/num_participants*100
+connect_devices$yes_percent = connect_devices$yes/num_participants*100
+connect_devices$yes_emp_percent = connect_devices$yes_emp/num_participants*100
+# Reorder columns
+connect_devices = connect_devices[, c(1,6,2,7,3,8,4,9,5,10)]
+# Format percentages
+connect_devices <- connect_devices %>%
+  mutate(
+    across(c(2, 4, 6, 8, 10), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
 # Rename the columns of connect_devices
 colnames(connect_devices) <- c(
   "No, provided by healthcare provider", 
-  "No, borrow from family/friend", 
-  "No, public", 
-  "Yes", 
-  "Yes, employer provided"
+  "Percentage",
+  "No, borrow from family/friend",
+  "Percentage",
+  "No, public",
+  "Percentage",
+  "Yes",
+  "Percentage",
+  "Yes, employer provided", 
+  "Percentage"
 )
 
 # Add custom row labels
-rownames(connect_devices) <- c("Not selected", "Selected")
-
+rownames(connect_devices) <- c("Not selected", "Selected", "Skipped", "Total")
+connect_devices = connect_devices[c(2,1,3,4), ]
 #You may or may not need to convert it into a df to be able to run a kable table, depending on your data structure
 gt_connect_dev <- as.data.frame(connect_devices)
 
 #Actual kable table
 knitr::kable(gt_connect_dev, 
              caption='Do you use your own personal device to access MyConnect?', 
-             row.names=FALSE,
+             row.names=TRUE,
              align=c("l","c","c","c","c","c","c","c","c","c"), 
-             booktabs = TRUE)  %>% 
-  kable_styling(latex_options = "scale_down")
+             booktabs = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = c("hold_position", "scale_down", "landscape")) %>%
+  kableExtra::kable_styling(font_size = 7) %>%            # Reduce font size further if needed
+  kableExtra::column_spec(1, width = "3cm") %>%           # Adjust width for first column
+  kableExtra::column_spec(2:10, width = "1.5cm") %>%
+  kableExtra::landscape()# Adjust width for other column
 ```
 
 ```{r, echo= FALSE}
+# Question 7: Ease of using MyConnect
 data_survey_ease = as.data.frame(table((data_survey$my_connect_ease)))
-data_survey_ease$percentage = data_survey_ease$Freq/sum(data_survey_ease$Freq)*100
-data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard", "Skipped", "Total"))
+data_survey_ease[6, 1]= "Skipped"
+data_survey_ease[7, 1]= "Total"
+data_survey_ease[6, 2] = num_participants-sum(data_survey_ease[1:5, 2])
+data_survey_ease[7, 2] = sum(data_survey_ease[1:6, 2])
+data_survey_ease$percentage = data_survey_ease$Freq/num_participants*100
+# Format Percentages
+data_survey_ease <- data_survey_ease %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
 data_survey_ease = as.data.frame(data_survey_ease)
 # Create kable table
 kable_ease <- data_survey_ease %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
-        align = c("l", "c", "c"), caption='How easy or hard is it to use MyConnect?') %>%  # Align first column left, others center
+        align = c("l", "c", "c"), caption = 'How easy or hard is it to use MyConnect?') %>%
   kable_styling(latex_options = "hold_position")
 
-# Print the table
 kable_ease
 ```
 
 ```{r, echo= FALSE}
+# Question 8: Technical Problems
 data_survey_tech = as.data.frame(table((data_survey$technical_issues)))
-data_survey_tech$percentage = data_survey_tech$Freq/sum(data_survey_tech$Freq)*100
-data_survey_tech$Var1= factor(data_survey_tech$Var1, levels = c("Yes", "No"))
+data_survey_tech$Var1= factor(data_survey_tech$Var1, levels = c("Yes", "No", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_tech[3, 1]= "Skipped"
+data_survey_tech[4, 1]= "Total"
+data_survey_tech[3, 2] = num_participants-sum(data_survey_tech[1:2, 2])
+data_survey_tech[4, 2] = sum(data_survey_tech[1:3, 2])
+
+# Calculate Percentages
+data_survey_tech$percentage = data_survey_tech$Freq/num_participants*100
+
+# Format Percentages
+data_survey_tech <- data_survey_tech %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_tech <- data_survey_tech %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, col.names = c("Response", "Number of Participants", "Percentage of Participants"),   align = c("l", "c", "c","c","c","c"), caption = "Have you experienced technical problems?") %>%
   kable_styling(latex_options = "hold_position") %>%
   add_header_above(c("Have you experienced technical problems?" = 3))
@@ -303,13 +379,28 @@ kable_tech
 ```
 
 ```{r, echo = FALSE}
+# Question 10: Finding Everything Looking For 
 data_survey_find = as.data.frame(table((data_survey$finding_my_connect)))
-data_survey_find$percentage = data_survey_find$Freq/sum(data_survey_find$Freq)*100
-data_survey_find$Var1= factor(data_survey_find$Var1, levels = c("Yes", "No"))
+data_survey_find$Var1= factor(data_survey_find$Var1, levels = c("Yes", "No", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_find[3, 1]= "Skipped"
+data_survey_find[4, 1]= "Total"
+data_survey_find[3, 2] = num_participants-sum(data_survey_find[1:2, 2])
+data_survey_find[4, 2] = sum(data_survey_find[1:3, 2])
+
+# Calculate Percentages
+data_survey_find$percentage = data_survey_find$Freq/num_participants*100
+
+# Format Percentages
+data_survey_find <- data_survey_find %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 # Create kable table
 kable_find <- data_survey_find %>%
-  arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
+  arrange(Var1) %>% 
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -321,14 +412,29 @@ kable_find
 ```
 
 ```{r, echo = FALSE}
+# Question 13: Number of Communications
 data_survey_comms = as.data.frame(table((data_survey$comms)))
-data_survey_comms$percentage = data_survey_comms$Freq/sum(data_survey_comms$Freq)*100
-data_survey_comms$Var1= factor(data_survey_comms$Var1, levels = c("Too many", "Just enough", "Not enough"))
+data_survey_comms$Var1= factor(data_survey_comms$Var1, levels = c("Too many", "Just enough", "Not enough", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_comms[4, 1]= "Skipped"
+data_survey_comms[5, 1]= "Total"
+data_survey_comms[4, 2] = num_participants-sum(data_survey_comms[1:3, 2])
+data_survey_comms[5, 2] = sum(data_survey_comms[1:4, 2])
+
+# Calculate Percentages
+data_survey_comms$percentage = data_survey_comms$Freq/num_participants*100
+
+# Format Percentages
+data_survey_comms <- data_survey_comms %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_comms <- data_survey_comms %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
-        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "What do you think about the number of communications you get from the Connect team?") %>%  # Add caption
   kable_styling(latex_options = "hold_position")
@@ -337,14 +443,30 @@ kable_comms <- data_survey_comms %>%
 kable_comms
 ```
 
-
-```{r, echo = FALSE}
+```{r, restuls= "asis", echo = FALSE}
+# Question 14: Information from communications
 data_survey_info_needed = as.data.frame(table((data_survey$info_needed)))
-data_survey_info_needed$percentage = data_survey_info_needed$Freq/sum(data_survey_info_needed$Freq)*100
-data_survey_info_needed$Var1= factor(data_survey_info_needed$Var1, levels = c("Yes", "No", "Unsure"))
+data_survey_info_needed$Var1= factor(data_survey_info_needed$Var1, levels = c("Yes", "No", "Skipped", "Total"))
+
+
+# Skipped & Total Rows
+data_survey_info_needed[3, 1]= "Skipped"
+data_survey_info_needed[4, 1]= "Total"
+data_survey_info_needed[3, 2] = num_participants-sum(data_survey_info_needed[1:2, 2])
+data_survey_info_needed[4, 2] = sum(data_survey_info_needed[1:3, 2])
+
+# Calculate Percentages
+data_survey_info_needed$percentage = data_survey_info_needed$Freq/num_participants*100
+
+# Format Percentages
+data_survey_info_needed <- data_survey_info_needed %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_info <- data_survey_info_needed %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -356,14 +478,30 @@ kable_info
 ```
 
 ```{r, echo = FALSE}
+# Question 15: First Survey
 data_survey_first = as.data.frame(table((data_survey$first_survey_completion)))
-data_survey_first$percentage = data_survey_first$Freq/sum(data_survey_first$Freq)*100
-data_survey_first$Var1= factor(data_survey_first$Var1, levels = c("Yes, completed all", "Yes, completed some", "No, completed none", "Unsure"))
+data_survey_first$Var1= factor(data_survey_first$Var1, levels = c("Yes, completed all", "Yes, completed some", "No, completed none", "Unsure", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_first[5, 1]= "Skipped"
+data_survey_first[6, 1]= "Total"
+data_survey_first[5, 2] = num_participants-sum(data_survey_first[1:4, 2])
+data_survey_first[6, 2] = sum(data_survey_first[1:5, 2])
+
+# Calculate Percentages
+data_survey_first$percentage = data_survey_first$Freq/num_participants*100
+
+# Format Percentages
+data_survey_first <- data_survey_first %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_first <- data_survey_first %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
-        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "Have you completed the first survey for Connect?") %>%  # Add caption
   kable_styling(latex_options = "hold_position")
@@ -371,18 +509,40 @@ kable_first <- data_survey_first %>%
 # Print the table
 kable_first
 ```
+```{r, echo = FALSE}
+# Number eligible for question 17
+elig_not_first = sum(data_survey_first$Freq[c(1,4)])
+```
+
 
 ```{r, echo = FALSE}
+# Question 17: Why they haven't completed first survey
 data_survey_not_first = as.data.frame(table((data_survey$why_not_first_survey)))
-data_survey_not_first$percentage = data_survey_not_first$Freq/sum(data_survey_not_first$Freq)*100
-data_survey_not_first$Var1= factor(data_survey_not_first$Var1)
+data_survey_not_first$Var1= factor(data_survey_not_first$Var1, levels = c("I am having technical issues", "I cannot find the survey", "I don't feel comfortable answering the survey questions", "I don't have time", "I have connectivity issues", "Other", "Skipped", "Total"))
+
+
+# Skipped & Total Rows
+data_survey_not_first[7, 1]= "Skipped"
+data_survey_not_first[8, 1]= "Total"
+data_survey_not_first[7, 2] = elig_not_first-sum(data_survey_not_first[1:6, 2])
+data_survey_not_first[8, 2] = sum(data_survey_not_first[1:7, 2])
+
+# Calculate Percentages
+data_survey_not_first$percentage = data_survey_not_first$Freq/elig_not_first*100
+
+# Format Percentages
+data_survey_not_first <- data_survey_not_first %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_not_first <- data_survey_not_first %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
-        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
+        col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
-        caption = "Have you completed the first survey for Connect?") %>%  # Add caption
+        caption = "Please choose the reason that best describes why you have
+not completed all the sections in the first survey") %>%  # Add caption
   kable_styling(latex_options = c("hold_position", "scale_down"))  # Add scale down option
 
 # Print the table
@@ -390,12 +550,27 @@ kable_not_first
 ```
 
 ```{r, echo = FALSE}
+# Question 18: Length of survey 1
 data_survey_length1 = as.data.frame(table((data_survey$length_first_survey)))
-data_survey_length1$percentage = data_survey_length1$Freq/sum(data_survey_length1$Freq)*100
-data_survey_length1$Var1= factor(data_survey_length1$Var1, levels = c("Too long", "Just long enough", "Not long enough"))
+data_survey_length1$Var1= factor(data_survey_length1$Var1, levels = c("Too long", "Just long enough", "Not long enough", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_length1[4, 1]= "Skipped"
+data_survey_length1[5, 1]= "Total"
+data_survey_length1[4, 2] = num_participants-sum(data_survey_length1[1:3, 2])
+data_survey_length1[5, 2] = sum(data_survey_length1[1:4, 2])
+
+# Calculate Percentages
+data_survey_length1$percentage = data_survey_length1$Freq/num_participants*100
+
+# Format Percentages
+data_survey_length1 <- data_survey_length1 %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_length1 <- data_survey_length1 %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -407,13 +582,27 @@ kable_length1
 ```
 
 ```{r, echo = FALSE}
-# Table 1: Biospecimen Donation
+# Question 20: Donated biospecimens?
 data_survey_biospec = as.data.frame(table((data_survey$biospecimen_donation)))
-data_survey_biospec$percentage = data_survey_biospec$Freq/sum(data_survey_biospec$Freq)*100
-data_survey_biospec$Var1 = factor(data_survey_biospec$Var1, levels = c("Yes", "No", "Unsure"))
+data_survey_biospec$Var1 = factor(data_survey_biospec$Var1, levels = c("Yes", "No", "Unsure", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_biospec[4, 1]= "Skipped"
+data_survey_biospec[5, 1]= "Total"
+data_survey_biospec[4, 2] = num_participants-sum(data_survey_biospec[1:3, 2])
+data_survey_biospec[5, 2] = sum(data_survey_biospec[1:4, 2])
+
+# Calculate Percentages
+data_survey_biospec$percentage = data_survey_biospec$Freq/num_participants*100
+
+# Format Percentages
+data_survey_biospec <- data_survey_biospec %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_biospec = data_survey_biospec %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -422,15 +611,35 @@ kable_biospec = data_survey_biospec %>%
 kable_biospec
 
 ```
+```{r, echo = FALSE}
+# Participants eligible for question 21
+elig_biospec = data_survey_biospec$Freq[3]
+```
+
 
 ```{r, echo = FALSE}
-# Table 2: Communication About Biospecimen Donation
+# Queston 21: Communication About Biospecimen Donation
 data_survey_biospec_com = as.data.frame(table((data_survey$comms_biospeciment_donation)))
-data_survey_biospec_com$percentage = data_survey_biospec_com$Freq/sum(data_survey_biospec_com$Freq)*100
-data_survey_biospec_com$Var1 = factor(data_survey_biospec_com$Var1, levels = c("Very well", "Well", "Neutral", "Poor", "Very poor"))
+data_survey_biospec_com$Var1 = factor(data_survey_biospec_com$Var1, levels = c("Very well", "Well", "Neutral", "Poor", "Very poor", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_biospec_com[6, 1]= "Skipped"
+data_survey_biospec_com[7, 1]= "Total"
+data_survey_biospec_com[6, 2] = elig_biospec-sum(data_survey_biospec_com[1:5, 2])
+data_survey_biospec_com[7, 2] = sum(data_survey_biospec_com[1:6, 2])
+
+# Calculate Percentages
+data_survey_biospec_com$percentage = data_survey_biospec_com$Freq/elig_biospec*100
+
+# Format Percentages
+data_survey_biospec_com <- data_survey_biospec_com %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_biospec_com = data_survey_biospec_com %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -440,13 +649,28 @@ kable_biospec_com
 ```
 
 ```{r, echo = FALSE}
-# Table 3: Time for Biospecimen Donation
+# Question 22: Time for Biospecimen Donation
 data_survey_bs_time = as.data.frame(table((data_survey$time_biospecimen_donation)))
-data_survey_bs_time$percentage = data_survey_bs_time$Freq/sum(data_survey_bs_time$Freq)*100
-data_survey_bs_time$Var1 = factor(data_survey_bs_time$Var1, levels = c("Too much time", "Right amount of time", "Too little time"))
+data_survey_bs_time$Var1 = factor(data_survey_bs_time$Var1, levels = c("Too much time", "Right amount of time", "Too little time", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_bs_time[4, 1]= "Skipped"
+data_survey_bs_time[5, 1]= "Total"
+data_survey_bs_time[4, 2] = num_participants-sum(data_survey_bs_time[1:3, 2])
+data_survey_bs_time[5, 2] = sum(data_survey_bs_time[1:4, 2])
+
+# Calculate Percentages
+data_survey_bs_time$percentage = data_survey_bs_time$Freq/num_participants*100
+
+# Format Percentages
+data_survey_bs_time <- data_survey_bs_time %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_biospec_time = data_survey_bs_time %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -457,30 +681,58 @@ kable_biospec_time
 ```
 
 ```{r, echo = FALSE}
-# Table 4: Ease of Donating Samples
+# Question 23: Ease of Donating Samples
 data_survey_bs_ease = as.data.frame(table((data_survey$ease_donating_samples)))
-data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/sum(data_survey_bs_ease$Freq)*100
-data_survey_bs_ease$Var1 = factor(data_survey_bs_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+data_survey_bs_ease$Var1 = factor(data_survey_bs_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_bs_ease[6, 1]= "Skipped"
+data_survey_bs_ease[7, 1]= "Total"
+data_survey_bs_ease[6, 2] = num_participants-sum(data_survey_bs_ease[1:5, 2])
+data_survey_bs_ease[7, 2] = sum(data_survey_bs_ease[1:6, 2])
+
+# Calculate Percentages
+data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/num_participants*100
+
+# Format Percentages
+data_survey_bs_ease <- data_survey_bs_ease %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_biospec_ease = data_survey_bs_ease %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
         caption = "How would you rate your experience donating samples? (Ease)") %>%
   kable_styling(latex_options = "hold_position")
 kable_biospec_ease
-
 ```
 
 ```{r, echo = FALSE}
-# Table 5: Experience with the Connect Team
+# Question 24: Experience with the Connect Team
 data_survey_bs_exp = as.data.frame(table((data_survey$exp_dontating_samples)))
-data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/sum(data_survey_bs_exp$Freq)*100
-data_survey_bs_exp$Var1 = factor(data_survey_bs_exp$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+data_survey_bs_exp$Var1 = factor(data_survey_bs_exp$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor", "Skipped", "Total"))
+
+
+# Skipped & Total Rows
+data_survey_bs_exp[6, 1]= "Skipped"
+data_survey_bs_exp[7, 1]= "Total"
+data_survey_bs_exp[6, 2] = num_participants-sum(data_survey_bs_exp[1:5, 2])
+data_survey_bs_exp[7, 2] = sum(data_survey_bs_exp[1:6, 2])
+
+# Calculate Percentages
+data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/num_participants*100
+
+# Format Percentages
+data_survey_bs_exp <- data_survey_bs_exp %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_biospec_exp = data_survey_bs_exp %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -491,13 +743,28 @@ kable_biospec_exp
 ```
 
 ```{r, echo = FALSE}
-# Table 6: Sample Survey Completion
+# Question 26: Sample Survey Completion
 data_survey_ss_comp = as.data.frame(table((data_survey$sample_survey_completion)))
-data_survey_ss_comp$percentage = data_survey_ss_comp$Freq/sum(data_survey_ss_comp$Freq)*100
-data_survey_ss_comp$Var1 = factor(data_survey_ss_comp$Var1, levels = c("Yes", "No", "Unsure"))
+data_survey_ss_comp$Var1 = factor(data_survey_ss_comp$Var1, levels = c("Yes", "No", "Unsure", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_ss_comp[4, 1]= "Skipped"
+data_survey_ss_comp[5, 1]= "Total"
+data_survey_ss_comp[4, 2] = num_participants-sum(data_survey_ss_comp[1:3, 2])
+data_survey_ss_comp[5, 2] = sum(data_survey_ss_comp[1:4, 2])
+
+# Calculate Percentages
+data_survey_ss_comp$percentage = data_survey_ss_comp$Freq/num_participants*100
+
+# Format Percentages
+data_survey_ss_comp <- data_survey_ss_comp %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 kable_ss_comp = data_survey_ss_comp %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -506,15 +773,36 @@ kable_ss_comp = data_survey_ss_comp %>%
 kable_ss_comp
 
 ```
+```{r, echo = FALSE}
+# Eligible for Question 28
+elig_ss = data_survey_ss_comp$Freq[3]
+# Eligible for Question 29
+elig_not_ss = data_survey_ss_comp$Freq[1]
+```
+
 
 ```{r, echo = FALSE}
-# Table 7: Sample Survey Completion at Visit
+# Question 27: Sample Survey Completion at Visit
 data_survey_ss_con = as.data.frame(table((data_survey$at_visit_sample_survey)))
-data_survey_ss_con$percentage = data_survey_ss_con$Freq/sum(data_survey_ss_con$Freq)*100
-data_survey_ss_con$Var1 = factor(data_survey_ss_con$Var1, levels = c("Yes", "No", "Unsure"))
+data_survey_ss_con$Var1 = factor(data_survey_ss_con$Var1, levels = c("Yes", "No", "Unsure", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_ss_con[4, 1]= "Skipped"
+data_survey_ss_con[5, 1]= "Total"
+data_survey_ss_con[4, 2] = elig_ss-sum(data_survey_ss_con[1:3, 2])
+data_survey_ss_con[5, 2] = sum(data_survey_ss_con[1:4, 2])
+
+# Calculate Percentages
+data_survey_ss_con$percentage = data_survey_ss_con$Freq/elig_ss*100
+
+# Format Percentages
+data_survey_ss_con <- data_survey_ss_con %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_ss_con = data_survey_ss_con %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -524,24 +812,49 @@ kable_ss_con
 ```
 
 ```{r, echo = FALSE}
-```{r, echo = FALSE}
-# Table 8: Personal Device Usage for Sample Survey
+# Question 28: Personal Device Usage for Sample Survey
 prov_healthcare = table(data_dev$samp_prov_healthcare)
 borrow = table(data_dev$samp_borrow)
 public = table(data_dev$samp_public)
 yes = table(data_dev$samp_yes)
 yes_emp = table(data_dev$samp_yes_emp)
-
 samp_devices = as.data.frame(cbind(prov_healthcare, borrow, public, yes, yes_emp))
+
+# Calculate skipped
+samp_devices[3, ] = elig_ss - colSums(samp_devices[1:2, ])
+# Calculate total
+samp_devices[4, ] = colSums(samp_devices[c(1:3),])
+
+# Calculate percentages
+samp_devices$prov_percent = samp_devices$prov_healthcare/elig_ss*100
+samp_devices$borrow_percent = samp_devices$borrow/elig_ss*100
+samp_devices$public_percent = samp_devices$public/elig_ss*100
+samp_devices$yes_percent = samp_devices$yes/elig_ss*100
+samp_devices$yes_emp_percent = samp_devices$yes_emp/elig_ss*100
+
+# Reorder columns
+samp_devices = samp_devices[, c(1,6,2,7,3,8,4,9,5,10)]
+# Format percentages
+samp_devices <- samp_devices %>%
+  mutate(
+    across(c(2, 4, 6, 8, 10), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 colnames(samp_devices) <- c(
   "No, provided by healthcare provider", 
+  "Percentage",
   "No, borrow from family/friend", 
+  "Percentage",
   "No, public", 
+  "Percentage",
   "Yes", 
-  "Yes, employer provided"
+  "Percentage",
+  "Yes, employer provided",
+  "Percentage"
 )
-rownames(samp_devices) <- c("Not selected", "Selected")
 
+rownames(samp_devices) <- c("Not selected", "Selected", "Skipped", "Total")
+samp_devices = samp_devices[c(2,1,3,4),]
 kable_samp_dev = samp_devices %>%
   kable("latex", booktabs = TRUE, 
         align = c("l", "c", "c", "c", "c"),
@@ -552,15 +865,28 @@ kable_samp_dev = samp_devices %>%
 kable_samp_dev
 ```
 
-
 ```{r, echo = FALSE}
-# Table 9: Reasons for Not Completing Sample Survey
+# Question 29: Reasons for Not Completing Sample Survey
 data_survey_ss_not = as.data.frame(table((data_survey$why_not_sample_survey)))
-data_survey_ss_not$percentage = data_survey_ss_not$Freq/sum(data_survey_ss_not$Freq)*100
-data_survey_ss_not$Var1 = factor(data_survey_ss_not$Var1)
+data_survey_ss_not$Var1= factor(data_survey_ss_not$Var1, levels = c("I am having technical issues", "I cannot find the survey", "I don't feel comfortable answering the survey questions", "I don't have time", "I have connectivity issues", "Other", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_ss_not[7, 1]= "Skipped"
+data_survey_ss_not[8, 1]= "Total"
+data_survey_ss_not[7, 2] = elig_not_ss-sum(data_survey_ss_not[1:6, 2])
+data_survey_ss_not[8, 2] = sum(data_survey_ss_not[1:7, 2])
+
+# Calculate Percentages
+data_survey_ss_not$percentage = data_survey_ss_not$Freq/elig_not_ss*100
+
+# Format Percentages
+data_survey_ss_not <- data_survey_ss_not %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 kable_ss_not = data_survey_ss_not %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -569,34 +895,65 @@ kable_ss_not = data_survey_ss_not %>%
 kable_ss_not
 ```
 
+
+
 ```{r, echo = FALSE}
-# Table 10: Length of the Survey
-data_survey_length1 = as.data.frame(table(data_survey$length_first_survey))
-data_survey_length1$percentage = data_survey_length1$Freq / sum(data_survey_length1$Freq) * 100
-data_survey_length1$Var1 = factor(data_survey_length1$Var1, levels = c("Too short", "Just right", "Too long"))
+# Question 31: Length Preference
+data_survey_lengthpref = as.data.frame(table((data_survey$survey_length_pref)))
+data_survey_lengthpref$Var1= factor(data_survey_lengthpref$Var1, levels = c("Longer surveys, sent less often", "Shorter surveys, sent more often", "I don’t have a preference for survey length and frequency", "Skipped", "Total"))
 
-kable_length1 <- data_survey_length1 %>%
+
+# Skipped & Total Rows
+data_survey_lengthpref[4, 1]= "Skipped"
+data_survey_lengthpref[5, 1]= "Total"
+data_survey_lengthpref[4, 2] = num_participants-sum(data_survey_lengthpref[1:3, 2])
+data_survey_lengthpref[5, 2] = sum(data_survey_lengthpref[1:4, 2])
+
+# Calculate Percentages
+data_survey_lengthpref$percentage = data_survey_lengthpref$Freq/num_participants*100
+
+# Format Percentages
+data_survey_lengthpref <- data_survey_lengthpref %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+kable_lengthpref <- data_survey_lengthpref %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
-        col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
-        align = c("l", "c", "c"),
-        caption = "What do you think about the length of the first survey?") %>%
-  kable_styling(latex_options = "hold_position")
+    col.names = c("Response", "Number of Participants", "Percentage of Participants"),
+    align = c("l", "c", "c"),
+    caption = "In general, would you prefer to complete:"
+  ) %>%
+  kable_styling(position = "center")
 
-# Print the table
-kable_length1
+kable_lengthpref
 ```
 
 ```{r, echo = FALSE}
-# Table: Overall Experience
+# Question 32: Overall Experience
 data_survey_overall = as.data.frame(table((data_survey$overall_experience)))
 data_survey_overall$percentage = data_survey_overall$Freq / sum(data_survey_overall$Freq) * 100
-data_survey_overall$Var1 = factor(data_survey_overall$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor"))
+data_survey_overall$Var1 = factor(data_survey_overall$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor", "Skipped", "Total"))
+
+# Skipped & Total Rows
+data_survey_overall[6, 1]= "Skipped"
+data_survey_overall[7, 1]= "Total"
+data_survey_overall[6, 2] = num_participants-sum(data_survey_overall[1:5, 2])
+data_survey_overall[7, 2] = sum(data_survey_overall[1:6, 2])
+
+# Calculate Percentages
+data_survey_overall$percentage = data_survey_overall$Freq/num_participants*100
+
+# Format Percentages
+data_survey_overall <- data_survey_overall %>%
+  mutate(
+    across(c(3), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
 
 kable_overall = data_survey_overall %>%
   arrange(Var1) %>%
-  mutate(percentage = round(percentage, 2)) %>%  # Round percentages to 2 decimal places
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
@@ -608,7 +965,7 @@ kable_overall
 ```
 
 ```{r, echo = FALSE}
-# Create the table and convert to data frame
+# Question 35: Why they joined Connect
 count_cancer_personal_impact <- table(data_survey$why_joined_cancer_personal_impact)
 count_cancer_research <- table(data_survey$why_joined_cancer_research)
 count_friend_involved <- table(data_survey$why_joined_friend_involved)
@@ -631,21 +988,50 @@ table_why = as.data.frame(cbind(
   count_helping
 ))
 
+# Skipped & Total Rows
+table_why[3, ] = num_participants-colSums(table_why[1:2, ])
+table_why[4, ] = sum(table_why[1:3, 2])
+
+# Calculate percentages
+for (col in names(table_why)) {
+  pct_col_name <- paste0(col, "_pct")
+  table_why[[pct_col_name]] <- (table_why[[col]] / num_participants) * 100
+}
+
+# Reorder columns
+table_why = table_why[, c(1,10,2,11,3,12,4,13,5,14,6,15,7,16,8,17,9,18)]
+# Format percentages
+table_why <- table_why %>%
+  mutate(
+    across(c(2, 4, 6, 8, 10,12,14,16,18), ~ percent_format(accuracy = 0.1)(. / 100))
+  )
+
+
 # Rename the columns
 colnames(table_why) <- c(
-  "Cancer Personal Impact", 
+  "Cancer Personal Impact",
+  "Percentage",
   "Cancer Research", 
+  "Percentage",
   "Friend Involved", 
+  "Percentage",
   "Healthcare System Rep", 
+  "Percentage",
   "Like Research", 
+  "Percentage",
   "NCI", 
+  "Percentage",
   "Team",
+  "Percentage",
   "Payment",
-  "Helping"
+  "Percentage",
+  "Helping",
+  "Percentage"
 )
 
 # Add row labels (Yes, No)
-rownames(table_why) <- c("Not Selected", "Selected")
+rownames(table_why) <- c("Not Selected", "Selected", "Skipped", "Total")
+table_why = table_why[c(2,1,3,4),]
 
 # Create the Kable table with a caption and landscape format
 kable_why <- knitr::kable(table_why, 
@@ -656,9 +1042,9 @@ kable_why <- knitr::kable(table_why,
                            format = "latex", 
                            longtable = FALSE) %>% 
   kableExtra::kable_styling(latex_options = c("hold_position", "landscape", "scale_down")) %>%
-  kableExtra::kable_styling(font_size = 10)
+  kableExtra::kable_styling(font_size = 10)%>%
+  kableExtra::landscape()
 
 # Print the Kable table
 kable_why
 ```
-

@@ -178,8 +178,12 @@ data_survey[] <- lapply(data_survey, function(x) {
 ### Question 7 Table
 ```{r, echo = FALSE}
 data_survey_ease = as.data.frame(table((data_survey$my_connect_ease)))
-data_survey_ease$percentage = data_survey_ease$Freq/sum(data_survey_ease$Freq)*100
-data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard"))
+data_survey_ease$Var1= factor(data_survey_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard", "Skipped", "Total"))
+data_survey_ease[6, 1] = "Skipped"
+data_survey_ease[6, 2] = 7035-sum(data_survey_ease$Freq[1:5])
+data_survey_ease[7, 1] = "Total"
+data_survey_ease[7, 2] = 7035
+data_survey_ease$percentage = data_survey_ease$Freq/sum(data_survey_ease$Freq[1:6])*100
 gt_ease = data_survey_ease %>%
   arrange(Var1) %>%
   gt::gt() %>%
@@ -423,13 +427,13 @@ gt_ss_not
 data_survey_lengthpref = as.data.frame(table((data_survey$survey_length_pref)))
 data_survey_lengthpref$percentage = data_survey_lengthpref$Freq/sum(data_survey_lengthpref$Freq)*100
 data_survey_lengthpref$Var1= factor(data_survey_lengthpref$Var1, levels = c("Longer surveys, sent less often", "Shorter surveys, sent more often ", "I don’t have a preference for survey length and frequency"))
-gt_ss_not = data_survey_lengthpref %>%
+gt_lengthpref = data_survey_lengthpref %>%
   arrange(Var1) %>%
   gt::gt() %>%
   tab_header(title = "In general, would you prefer to complete:") %>% 
   fmt_number(columns = "percentage", decimals = 2) %>%
   cols_label(Freq= md("**Number of Participants**"), percentage = md("**Percentage of Participants**"), Var1= md("**Response**"))
-gt_ss_not
+gt_lengthpref
 ```
 
 ### Question 32 Table
