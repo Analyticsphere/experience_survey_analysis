@@ -1,0 +1,1762 @@
+---
+title: "Experience Survey Report, Stratified by Site"
+author: "Leila Orszag"
+date: 'Data Extracted and Report Ran: `r Sys.Date()`'
+output:
+  pdf_document:
+    extra_dependencies:
+    - float
+    - geometry
+    - pdflscape
+    - longtable
+    toc: false
+    df_print: paged
+  html_document:
+    toc: false
+    df_print: paged
+header-includes: \usepackage[labelformat=empty]{caption} \usepackage{placeins} \usepackage{booktabs}
+  \usepackage{pdflscape}
+geometry: paperwidth=16in, paperheight=8.5in, margin=0.5in
+---
+
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+# Setup
+dataset <- "FlatConnect"
+table   <- "participants_JP"
+tier    <- "prod"
+project <- switch(tier,
+                  dev  = "nih-nci-dceg-connect-dev",
+                  stg  = "nih-nci-dceg-connect-stg-5519",
+                  prod = "nih-nci-dceg-connect-prod-6d04")
+
+billing <- project
+
+# Libraries
+library(dplyr)
+library(DBI)
+library(bigrquery)
+library(glue)
+library(gt)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(tidyr)
+bq_auth() # Authenticate with BigQuery
+con_completion <- dbConnect(bigrquery::bigquery(), 
+                            project=project, 
+                            dataset=dataset, 
+                            billing=billing)
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE,
+  echo = TRUE,  # Show code or hide with FALSE
+  fig.width = 7, fig.height = 5  # Adjust figure/table sizing
+)
+options(knitr.kable.NA = "Skipped")
+```
+
+
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql <- glue(
+  "
+              SELECT 
+                  D_260186214 as device_my_connect,
+                  D_875017278 as my_connect_ease,
+                  D_630940888 as technical_issues,
+                  D_646060480 as finding_my_connect,
+                  D_124830305 as comms,
+                  D_646060480 as info_needed,
+                  D_586132480 as first_survey_completion,
+                  D_886084185_D_886084185 as why_not_first_survey,
+                  D_945546878 as length_first_survey,
+                  D_472709337 as biospecimen_donation,
+                  D_890945599 as comms_biospeciment_donation,
+                  D_465287908 as time_biospecimen_donation,
+                  D_956625094 as ease_donating_samples,
+                  D_476960744 as exp_dontating_samples,
+                  D_307813936 as sample_survey_completion,
+                  D_800057241 as at_visit_sample_survey,
+                  D_943119849_D_943119849 as why_not_sample_survey,
+                  D_482763096 as survey_length_pref,
+                  D_176469609 as overall_experience,
+                  D_960544981_d_101837333 as why_joined_nci, 
+                  D_960544981_d_313446770 as why_joined_team, 
+                  D_960544981_d_393996571 as why_joined_cancer_research, 
+                  D_960544981_d_490731188 as why_joined_hc_system_rep, 
+                  D_960544981_d_604524950 as why_joined_cancer_personal_impact, 
+                  D_960544981_d_815468840 as why_joined_like_research, 
+                  D_960544981_d_847753225 as why_joined_payment, 
+                  D_960544981_d_925993577 as why_joined_help_other,
+                  D_960544981_d_985468594 as why_joined_friend_involved,
+                  Connect_ID
+              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`
+            ")
+
+# Query the data and store as reference object
+data_survey <- dbGetQuery(con_completion, sql)
+
+# download the data
+data_survey<- data_survey %>%
+  collect()
+
+# relabel concept IDS
+data_survey[] <- lapply(data_survey, function(x) {
+  if (is.character(x)) {
+    x <- gsub("353358909", "Yes", x)
+    x <- gsub("104430631", "No", x)
+    x <- gsub("242016061", "Too many", x)
+    x <- gsub("185898646", "Just enough", x)
+    x <- gsub("803970496", "Not enough", x)
+    x <- gsub("178420302", "Unsure", x)
+    x <- gsub("198030665", "Yes, completed all", x)
+    x <- gsub("687057737", "Yes, completed some", x)
+    x <- gsub("333628672", "No, completed none", x)
+    x <- gsub("807574160", "Very easy", x)
+    x <- gsub("371268341", "Very easy", x)
+    x <- gsub("417633823", "Easy", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("940801246", "Hard", x)
+    x <- gsub("527229910", "Very hard", x)
+    x <- gsub("117258272", "I cannot find the survey", x)
+    x <- gsub("773860876", "I am having technical issues", x)
+    x <- gsub("551201830", "I don't have time", x)
+    x <- gsub("205790732", "I don't feel comfortable answering the survey questions", x)
+    x <- gsub("701389038", "I have connectivity issues", x)
+    x <- gsub("807835037", "Other", x)
+    x <- gsub("948464607", "Too long", x)
+    x <- gsub("537785073", "Just long enough", x)
+    x <- gsub("672312050", "Not long enough", x)
+    x <- gsub("254017984", "Very well", x)
+    x <- gsub("604455183", "Well", x)
+    x <- gsub("565881164", "Very good", x)
+    x <- gsub("719933364", "Good", x)
+    x <- gsub("308765753", "Neutral", x)
+    x <- gsub("138752522", "Poor", x)
+    x <- gsub("878535894", "Very poor", x)
+    x <- gsub("777433416", "Too much time", x)
+    x <- gsub("589724105", "Right amount of time", x)
+    x <- gsub("576052130", "Too little time", x)
+    x <- gsub("588529567", "Longer surveys, sent less often", x)
+    x <- gsub("628115953", "Shorter surveys, sent more often", x)
+    x <- gsub("267441074", "I don’t have a preference for survey length and frequency", x)
+  }
+  return(x)
+})
+```
+
+```{r, echo = FALSE}
+# Specify just the data we need with a query
+sql_dev <- glue(
+  "
+                        SELECT 
+                D_260186214 AS device,
+                D_470013848_D_495052121 AS phone_other, 
+                D_470013848_D_470013848_d_807835037 AS phone_iphone, 
+                D_470013848_D_470013848_d_358413399 AS phone_android, 
+                D_470013848_D_470013848_d_178420302 AS phone_unknown,
+                D_731524314_D_731524314_d_115959973 AS tablet_pixel, 
+                D_731524314_D_731524314_d_132115595 AS tablet_surface, 
+                D_731524314_D_731524314_d_178420302 AS tablet_unknown, 
+                D_731524314_D_731524314_d_238237869 AS tablet_galaxy, 
+                D_731524314_D_731524314_d_299722216 AS tablet_fire, 
+                D_731524314_D_731524314_d_515798638 AS tablet_ipad, 
+                D_731524314_D_731524314_d_985034149 AS tablet_lenovo,
+                D_731524314_D_638847244 AS tablet_other,
+                D_403175318_D_403175318_d_178420302 AS computer_unknown, 
+                D_403175318_D_403175318_d_200962909 AS computer_chromebook, 
+                D_403175318_D_403175318_d_554920493 AS computer_pc, 
+                D_403175318_D_403175318_d_798682161 AS computer_mac, 
+                D_403175318_D_403175318_d_807835037 AS computer_chromebook,
+                D_403175318_D_507471937 AS other_computer,
+                D_210120853_d_191667117 AS connect_borrow, 
+                D_210120853_d_217279879 AS connect_public, 
+                D_210120853_d_299631230 AS connect_yes, 
+                D_210120853_d_572976454 AS connect_prov_healthcare, 
+                D_210120853_d_916319911 AS connect_yes_emp,
+                D_649713579_d_147611720 AS samp_prov_healthcare, 
+                D_649713579_d_354508982 AS samp_borrow, 
+                D_649713579_d_588555669 AS samp_public, 
+                D_649713579_d_834694858 AS samp_yes, 
+                D_649713579_d_899315984 AS samp_yes_emp,
+                D_145727599_d_153962804 AS device_tablet, 
+                D_145727599_d_188067494 AS device_computer, 
+                D_145727599_d_386252749 AS device_phone,
+                Connect_ID
+            FROM 
+                `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`;
+
+            ")
+
+# Query the data and store as reference object
+data_dev <- dbGetQuery(con_completion, sql_dev)
+
+data_dev <- data_dev %>% 
+  collect()
+```
+
+```{r, echo = FALSE}
+sql_site <- glue::glue(
+    "
+      SELECT 
+      Connect_ID,
+      d_827220437 as site_name
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+    ")
+    
+# Query the data and store as reference object
+data_site <- dbGetQuery(con_completion, sql_site)
+```
+
+```{r, echo = FALSE}
+data_site[] <- lapply(data_site, function(x) {
+  if (is.character(x)) {
+    x <- gsub("531629870", "Health Partners", x)
+    x <- gsub("548392715", "Henry Ford", x)
+    x <- gsub("125001209", "KP Colorado", x)
+    x <- gsub("327912200", "KP Georgia", x)
+    x <- gsub("300267574", "KP Hawaii", x)
+    x <- gsub("452412599", "KP Northwest", x)
+    x <- gsub("303349821", "Marshfield", x)
+    x <- gsub("657167265", "Sanford", x)
+    x <- gsub("809703864", "U Chicago", x)
+    x <- gsub("472940358", "Baylor Scott & White", x)
+    x <- gsub("517700004", "NCI", x)
+    x <- gsub("181769837", "Other", x)
+  }
+}
+)
+data_site$site_name = as.factor(data_site$site_name)
+```
+
+```{r, echo = FALSE}
+num_participants = dim(data_survey)[1]
+```
+
+```{r, echo = FALSE}
+data_dev = left_join(data_dev, data_site, by = "Connect_ID")
+```
+
+```{r, echo = FALSE}
+data_survey = left_join(data_survey, data_site, by = "Connect_ID")
+```
+
+
+```{r, echo = FALSE}
+# Question 1: Type of Device
+device_phone = table(data_dev$device_phone)
+device_tablet = table(data_dev$device_tablet)
+device_computer = table(data_dev$device_computer)
+device_basic = as.data.frame(cbind(device_phone, device_tablet, device_computer))
+# Group by Site and calculate counts for each device type
+
+device_basic <- data_dev %>%
+  group_by(site_name) %>%
+  summarise(
+    participants_total = n(),
+    
+    
+    # Calculate counts and percentages for device_phone
+    device_phone_total_select = sum(as.integer(device_phone == 1), na.rm = TRUE),
+    device_phone_select_percent = paste0(
+      device_phone_total_select, " (", percent(device_phone_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    device_phone_total_non_select = sum(as.integer(device_phone == 0), na.rm = TRUE),
+    device_phone_non_select_percent = paste0(
+      device_phone_total_non_select, " (", percent(device_phone_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for device_tablet
+    device_tablet_total_select = sum(as.integer(device_tablet == 1), na.rm = TRUE),
+    device_tablet_select_percent = paste0(
+      device_tablet_total_select, " (", percent(device_tablet_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    device_tablet_total_non_select = sum(as.integer(device_tablet == 0), na.rm = TRUE),
+    device_tablet_non_select_percent = paste0(
+      device_tablet_total_non_select, " (", percent(device_tablet_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for device_computer
+    device_computer_total_select = sum(as.integer(device_computer == 1), na.rm = TRUE),
+    device_computer_select_percent = paste0(
+      device_computer_total_select, " (", percent(device_computer_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    device_computer_total_non_select = sum(as.integer(device_computer == 0), na.rm = TRUE),
+    device_computer_non_select_percent = paste0(
+      device_computer_total_non_select, " (", percent(device_computer_total_non_select / participants_total, accuracy = 0.1), ")"
+    )
+  )
+
+# Select and reorder columns for display
+device_basic <- device_basic %>%
+  select(
+    site_name, 
+    participants_total, device_phone_select_percent, device_phone_non_select_percent, 
+    device_tablet_select_percent, device_tablet_non_select_percent,
+    device_computer_select_percent, device_computer_non_select_percent
+  )
+
+colnames(device_basic) = c("Site Name", 
+                           "Total Participants",
+                           "Phone--Selected", 
+                           "Phone--Not Selected", 
+                           "Tablet--Selected", 
+                           "Tablet--Not Selected",
+                           "Computer--Selected", 
+                           "Computer--Not Selected")
+device_basic = device_basic[,c(1,3,4,5,6,7,8,2)]
+
+# Strip percentages and create numeric columns for summing
+device_basic_counts <- device_basic %>%
+  mutate(
+    `Phone--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Phone--Selected`)),
+    `Phone--Not Selected` = as.numeric(gsub(" \\(.*\\)", "", `Phone--Not Selected`)),
+    `Tablet--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Tablet--Selected`)),
+    `Tablet--Not Selected` = as.numeric(gsub(" \\(.*\\)", "", `Tablet--Not Selected`)),
+    `Computer--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Computer--Selected`)),
+    `Computer--Not Selected` = as.numeric(gsub(" \\(.*\\)", "", `Computer--Not Selected`)),
+    `Total Participants` = as.numeric(`Total Participants`)
+  )
+
+# Calculate total row counts
+total_row_counts <- device_basic_counts %>%
+  summarise(
+    `Site Name` = "Total",
+    `Phone--Selected` = sum(`Phone--Selected`, na.rm = TRUE),
+    `Phone--Not Selected` = sum(`Phone--Not Selected`, na.rm = TRUE),
+    `Tablet--Selected` = sum(`Tablet--Selected`, na.rm = TRUE),
+    `Tablet--Not Selected` = sum(`Tablet--Not Selected`, na.rm = TRUE),
+    `Computer--Selected` = sum(`Computer--Selected`, na.rm = TRUE),
+    `Computer--Not Selected` = sum(`Computer--Not Selected`, na.rm = TRUE),
+    `Total Participants` = sum(`Total Participants`, na.rm = TRUE)
+  )
+
+# Format total row with percentages
+total_row <- total_row_counts %>%
+  mutate(
+    `Phone--Selected` = paste0(`Phone--Selected`, " (", percent(`Phone--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Phone--Not Selected` = paste0(`Phone--Not Selected`, " (", percent(`Phone--Not Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Tablet--Selected` = paste0(`Tablet--Selected`, " (", percent(`Tablet--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Tablet--Not Selected` = paste0(`Tablet--Not Selected`, " (", percent(`Tablet--Not Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Computer--Selected` = paste0(`Computer--Selected`, " (", percent(`Computer--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Computer--Not Selected` = paste0(`Computer--Not Selected`, " (", percent(`Computer--Not Selected` / `Total Participants`, accuracy = 0.1), ")")
+  )
+
+# Append the total row to the original data
+device_basic <- bind_rows(device_basic, total_row)
+
+# Print the table with knitr and kableExtra
+knitr::kable(device_basic, 
+             caption = 'Which types of devices do you use for MyConnect by Site?', 
+             row.names = FALSE,
+             align = c("l", "c", "c", "c", "c", "c", "c", "c"), 
+             booktabs = TRUE) %>% 
+  kableExtra::kable_styling(latex_options = c("hold_position", "scale_down", "landscape")) %>%
+  kableExtra::add_header_above(c(" " = 1, "Phone" = 2, "Tablet" = 2, "Computer" = 2, " " = 1))
+```
+
+```{r, echo= FALSE}
+# Question 6: Device Ownernship
+connect_basic <- data_dev %>%
+  group_by(site_name) %>%
+  summarise(
+    participants_total = n(),
+    
+    # Calculate counts and percentages for prov_healthcare
+    prov_healthcare_total_select = sum(as.integer(connect_prov_healthcare == 1), na.rm = TRUE),
+    prov_healthcare_select_percent = paste0(
+      prov_healthcare_total_select, " (", percent(prov_healthcare_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    prov_healthcare_total_non_select = sum(as.integer(connect_prov_healthcare == 0), na.rm = TRUE),
+    prov_healthcare_non_select_percent = paste0(
+      prov_healthcare_total_non_select, " (", percent(prov_healthcare_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for borrow
+    borrow_total_select = sum(as.integer(connect_borrow == 1), na.rm = TRUE),
+    borrow_select_percent = paste0(
+      borrow_total_select, " (", percent(borrow_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    borrow_total_non_select = sum(as.integer(connect_borrow == 0), na.rm = TRUE),
+    borrow_non_select_percent = paste0(
+      borrow_total_non_select, " (", percent(borrow_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for public
+    public_total_select = sum(as.integer(connect_public == 1), na.rm = TRUE),
+    public_select_percent = paste0(
+      public_total_select, " (", percent(public_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    public_total_non_select = sum(as.integer(connect_public == 0), na.rm = TRUE),
+    public_non_select_percent = paste0(
+      public_total_non_select, " (", percent(public_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for yes
+    yes_total_select = sum(as.integer(connect_yes == 1), na.rm = TRUE),
+    yes_select_percent = paste0(
+      yes_total_select, " (", percent(yes_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    yes_total_non_select = sum(as.integer(connect_yes == 0), na.rm = TRUE),
+    yes_non_select_percent = paste0(
+      yes_total_non_select, " (", percent(yes_total_non_select / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Calculate counts and percentages for yes_emp
+    yes_emp_total_select = sum(as.integer(connect_yes_emp == 1), na.rm = TRUE),
+    yes_emp_select_percent = paste0(
+      yes_emp_total_select, " (", percent(yes_emp_total_select / participants_total, accuracy = 0.1), ")"
+    ),
+    yes_emp_total_non_select = sum(as.integer(connect_yes_emp == 0), na.rm = TRUE),
+    yes_emp_non_select_percent = paste0(
+      yes_emp_total_non_select, " (", percent(yes_emp_total_non_select / participants_total, accuracy = 0.1), ")"
+    )
+  )
+
+# Select and reorder columns for display
+connect_basic <- connect_basic %>%
+  select(
+    site_name, 
+    participants_total, 
+    prov_healthcare_select_percent, prov_healthcare_non_select_percent, 
+    borrow_select_percent, borrow_non_select_percent,
+    public_select_percent, public_non_select_percent,
+    yes_select_percent, yes_non_select_percent,
+    yes_emp_select_percent, yes_emp_non_select_percent
+  )
+
+# Rename columns for display
+colnames(connect_basic) <- c("Site Name", 
+                             "Total Participants",
+                             "Provided by Healthcare--Selected", 
+                             "Provided by Healthcare--Not Selected", 
+                             "Borrowed--Selected", 
+                             "Borrowed--Not Selected",
+                             "Public Device--Selected", 
+                             "Public Device--Not Selected",
+                             "Yes--Selected", 
+                             "Yes--Not Selected",
+                             "Yes Employer Provided--Selected", 
+                             "Yes Employer Provided--Not Selected")
+
+connect_basic = connect_basic[,c(1,3,5,7,9,11,2)]
+
+# Strip percentages and create numeric columns for summing
+connect_basic_counts <- connect_basic %>%
+  mutate(
+    `Provided by Healthcare--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Provided by Healthcare--Selected`)),
+    `Borrowed--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Borrowed--Selected`)),
+    `Public Device--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Public Device--Selected`)),
+    `Yes--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Yes--Selected`)),
+    `Yes Employer Provided--Selected` = as.numeric(gsub(" \\(.*\\)", "", `Yes Employer Provided--Selected`)),
+    `Total Participants` = as.numeric(`Total Participants`)
+  )
+
+# Calculate total row counts
+total_row_counts <- connect_basic_counts %>%
+  summarise(
+    `Site Name` = "Total",
+    `Provided by Healthcare--Selected` = sum(`Provided by Healthcare--Selected`, na.rm = TRUE),
+    `Borrowed--Selected` = sum(`Borrowed--Selected`, na.rm = TRUE),
+    `Public Device--Selected` = sum(`Public Device--Selected`, na.rm = TRUE),
+    `Yes--Selected` = sum(`Yes--Selected`, na.rm = TRUE),
+    `Yes Employer Provided--Selected` = sum(`Yes Employer Provided--Selected`, na.rm = TRUE),
+    `Total Participants` = sum(`Total Participants`, na.rm = TRUE)
+  )
+
+# Format total row with percentages
+total_row <- total_row_counts %>%
+  mutate(
+    `Provided by Healthcare--Selected` = paste0(`Provided by Healthcare--Selected`, " (", percent(`Provided by Healthcare--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Borrowed--Selected` = paste0(`Borrowed--Selected`, " (", percent(`Borrowed--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Public Device--Selected` = paste0(`Public Device--Selected`, " (", percent(`Public Device--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Yes--Selected` = paste0(`Yes--Selected`, " (", percent(`Yes--Selected` / `Total Participants`, accuracy = 0.1), ")"),
+    `Yes Employer Provided--Selected` = paste0(`Yes Employer Provided--Selected`, " (", percent(`Yes Employer Provided--Selected` / `Total Participants`, accuracy = 0.1), ")")
+  )
+
+# Append the total row to the original data
+connect_basic <- bind_rows(connect_basic, total_row)
+
+# Print the table with knitr and kableExtra
+knitr::kable(connect_basic, 
+             caption = 'Do you use your own personal device to access MyConnect?', 
+             row.names = FALSE,
+             align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"), 
+             booktabs = TRUE, 
+             longtable = TRUE) %>% 
+  kableExtra::kable_styling(
+      latex_options = c("hold_position", "scale_down", "repeat_header", "landscape")
+  )
+
+```
+
+```{r, echo= FALSE}
+# Question 7: Ease of using MyConnect
+# First, group by site_name and my_connect_ease, summarizing the counts
+data_survey_ease <- data_survey %>%
+  group_by(site_name, my_connect_ease) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Calculate total responses per site_name
+site_totals <- data_survey %>%
+  group_by(site_name) %>%
+  summarise(total = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_ease <- data_survey_ease %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_ease_wide <- data_survey_ease %>%
+  pivot_wider(
+    names_from = my_connect_ease,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Rename columns if needed
+colnames(data_survey_ease_wide)[8] <- "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_ease_wide[, -1] <- lapply(data_survey_ease_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_ease_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Combine the total row with the original data
+data_survey_ease_wide <- bind_rows(data_survey_ease_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_ease_wide <- data_survey_ease_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+data_survey_ease_wide = data_survey_ease_wide[,c(1,4,3,6,5,7,8,2)]
+# Rename columns if needed
+colnames(data_survey_ease_wide)[8] <- "Total Participants"
+colnames(data_survey_ease_wide)[1] <- "Site Name"
+
+# Create and print the kable table
+kable_ease <- data_survey_ease_wide %>%
+  kable("latex", booktabs = TRUE, caption = 'How easy or hard is it to use MyConnect by Site?', align = "l") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down", "landscape"))
+
+kable_ease
+```
+
+
+```{r, echo= FALSE}
+# Question 8: Technical Problems
+# First, group by site_name and technical_issues, summarizing the counts
+data_survey_tech <- data_survey %>%
+  group_by(site_name, technical_issues) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Calculate total responses per site_name
+site_totals <- data_survey %>%
+  group_by(site_name) %>%
+  summarise(total = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_tech <- data_survey_tech %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_tech_wide <- data_survey_tech %>%
+  pivot_wider(
+    names_from = technical_issues,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Rename columns if needed
+colnames(data_survey_tech_wide)[5] <- "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_tech_wide[, -1] <- lapply(data_survey_tech_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_tech_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_tech_wide <- bind_rows(data_survey_tech_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_tech_wide <- data_survey_tech_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+
+# Rearrange columns for final display
+data_survey_tech_wide <- data_survey_tech_wide[, c(1,4,3,5,2)]
+colnames(data_survey_tech_wide)[5] <- "Total Participants"
+colnames(data_survey_tech_wide)[1] <- "Site Name"
+
+# Create the kable table
+kable_tech <- data_survey_tech_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Have you experienced technical problems?", align = "l") %>%
+  kable_styling(latex_options = c("hold_position", "scale_down", "landscape"))
+
+kable_tech
+```
+
+```{r, echo = FALSE}
+# Question 10: Finding Everything Looking For 
+
+# First, group by site_name and finding_my_connect, summarizing the counts
+data_survey_find <- data_survey %>%
+  group_by(site_name, finding_my_connect) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Calculate total responses per site_name
+site_totals <- data_survey %>%
+  group_by(site_name) %>%
+  summarize(total = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_find <- data_survey_find %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_find_wide <- data_survey_find %>%
+  pivot_wider(
+    names_from = finding_my_connect,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_find_wide)[5] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_find_wide[, -1] <- lapply(data_survey_find_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_find_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_find_wide <- bind_rows(data_survey_find_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_find_wide <- data_survey_find_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+data_survey_find_wide = data_survey_find_wide[,c(1,3,4,5,2)]
+colnames(data_survey_find_wide)[5] = "Total Participants"
+colnames(data_survey_find_wide)[1] = "Site Name"
+
+
+# Create kable table
+kable_find <- data_survey_find_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Are you able to find everything you are looking for on MyConnect?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_find
+
+```
+```{r, echo = FALSE}
+# Question 13: Number of Communications
+
+# First, group by site_name and comms, summarizing the counts
+data_survey_comms <- data_survey %>%
+  group_by(site_name, comms) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Calculate total responses per site_name
+site_totals <- data_survey %>%
+  group_by(site_name) %>%
+  summarize(total = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_comms <- data_survey_comms %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_comms_wide <- data_survey_comms %>%
+  pivot_wider(
+    names_from = comms,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_comms_wide)[6] = "Skipped"
+
+
+# Ensure that the values in the wide table are numeric
+data_survey_comms_wide[, -1] <- lapply(data_survey_comms_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_comms_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_comms_wide <- bind_rows(data_survey_comms_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_comms_wide <- data_survey_comms_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+data_survey_comms_wide = data_survey_comms_wide[, c(1,4,3,5,6,2)]
+colnames(data_survey_comms_wide)[6] = "Total Participants"
+colnames(data_survey_comms_wide)[1] = "Site Name"
+
+# Create kable table
+kable_comms <- data_survey_comms_wide %>%
+  kable("latex", booktabs = TRUE, caption = "What do you think about the number of communications you get from the Connect team?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_comms
+```
+```{r, echo = FALSE}
+# Question 14: Information from communications
+
+# First, group by site_name and info_needed, summarizing the counts
+data_survey_info_needed <- data_survey %>%
+  group_by(site_name, info_needed) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_info_needed <- data_survey_info_needed %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_info_needed_wide <- data_survey_info_needed %>%
+  pivot_wider(
+    names_from = info_needed,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_info_needed_wide)[5] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_info_needed_wide[, -1] <- lapply(data_survey_info_needed_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_info_needed_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_info_needed_wide <- bind_rows(data_survey_info_needed_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_info_needed_wide <- data_survey_info_needed_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+data_survey_info_needed_wide = data_survey_info_needed_wide[, c(1,3,4,5,2)]
+colnames(data_survey_info_needed_wide)[5] = "Total Participants"
+colnames(data_survey_info_needed_wide)[1] = "Site Name"
+
+# Create kable table
+kable_info_needed <- data_survey_info_needed_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Do the Connect communications give you the information you need to complete study tasks?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_info_needed
+```
+
+```{r, echo = FALSE}
+# Question 15: First Survey
+
+# First, group by site_name and first_survey_completion, summarizing the counts
+data_survey_first <- data_survey %>%
+  group_by(site_name, first_survey_completion) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_first <- data_survey_first %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_first_wide <- data_survey_first %>%
+  pivot_wider(
+    names_from = first_survey_completion,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_first_wide)[7] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_first_wide[, -1] <- lapply(data_survey_first_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_first_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_first_wide <- bind_rows(data_survey_first_wide, total_row)
+
+# Convert numeric columns to formatted strings with percentages
+data_survey_first_wide <- data_survey_first_wide %>%
+  mutate(across(
+    starts_with("total"):starts_with("Skipped"),
+    ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
+  ))
+
+data_survey_first_wide = data_survey_first_wide[, c(1,3,6,4,5,7,2)]
+colnames(data_survey_first_wide)[7] = "Total Participants"
+colnames(data_survey_first_wide)[1] = "Site Name"
+
+# Create kable table
+kable_first <- data_survey_first_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Have you completed the first survey for Connect?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_first
+```
+```{r, echo = FALSE}
+# Question 17: Why they haven't completed first survey
+
+# First, group by site_name and why_not_first_survey, summarizing the counts
+data_survey_not_first <- data_survey %>%
+  group_by(site_name, why_not_first_survey) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Pivot the data into wide format
+data_survey_not_first_wide <- data_survey_not_first %>%
+  pivot_wider(
+    names_from = why_not_first_survey,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Ensure that the values in the wide table are numeric
+data_survey_not_first_wide[, -1] <- lapply(data_survey_not_first_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_not_first_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_not_first_wide <- bind_rows(data_survey_not_first_wide, total_row)
+
+# Extract totals from data_survey_first_wide
+total1 <- gsub("\\s*\\(.*?\\)", "", data_survey_first_wide$`Yes, completed some`)
+total2 <- gsub("\\s*\\(.*?\\)", "", data_survey_first_wide$`No, completed none`)
+
+# Convert the cleaned strings to numeric
+total1 <- as.numeric(total1)
+total2 <- as.numeric(total2)
+
+# Calculate total eligibility
+total_elig <- total1 + total2
+
+# Update data_survey_not_first_wide with the total eligibility
+data_survey_not_first_wide$total <- total_elig
+
+# Calculate the skipped value
+data_survey_not_first_wide$Skipped <- total_elig - rowSums(data_survey_not_first_wide[, 3:8], na.rm = TRUE)
+
+
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_not_first_wide <- data_survey_not_first_wide %>%
+  mutate(across(starts_with("I am having"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_not_first_wide = data_survey_not_first_wide[, c(1,3,4,5,7,8,6,10,9)]
+colnames(data_survey_not_first_wide)[9] = "Total Eligible Participants"
+colnames(data_survey_not_first_wide)[1] = "Site Name"
+
+# Create kable table
+kable_first <- data_survey_not_first_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Please choose the reason that best describes why you have
+not completed all the sections in the first survey", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_first
+```
+
+```{r, echo = FALSE}
+# Question 18: Length of survey 1
+
+# First, group by site_name and length_first_survey, summarizing the counts
+data_survey_length1 <- data_survey %>%
+  group_by(site_name, length_first_survey) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_length1 <- data_survey_length1 %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_length1_wide <- data_survey_length1 %>%
+  pivot_wider(
+    names_from = length_first_survey,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_length1_wide)[6] = "Skipped"
+
+
+# Ensure that the values in the wide table are numeric
+data_survey_length1_wide[, -1] <- lapply(data_survey_length1_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_length1_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_length1_wide <- bind_rows(data_survey_length1_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_length1_wide <- data_survey_length1_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_length1_wide = data_survey_length1_wide[, c(1,5,3,4,6,2)]
+colnames(data_survey_length1_wide)[6] = "Total Participants"
+colnames(data_survey_length1_wide)[1] = "Site Name"
+
+# Create kable table
+kable_length1 <- data_survey_length1_wide %>%
+  kable("latex", booktabs = TRUE, caption = "What do you think about the length of the first survey?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_length1
+```
+
+```{r, echo = FALSE}
+# Question 20: Donated biospecimens?
+
+# First, group by site_name and biospecimen_donation, summarizing the counts
+data_survey_biospec <- data_survey %>%
+  group_by(site_name, biospecimen_donation) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_biospec <- data_survey_biospec %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_biospec_wide <- data_survey_biospec %>%
+  pivot_wider(
+    names_from = biospecimen_donation,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_biospec_wide)[6] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_biospec_wide[, -1] <- lapply(data_survey_biospec_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_biospec_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_biospec_wide <- bind_rows(data_survey_biospec_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_biospec_wide <- data_survey_biospec_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_biospec_wide = data_survey_biospec_wide[, c(1,3,4,5,6,2)]
+colnames(data_survey_biospec_wide)[6] = "Total Participants"
+colnames(data_survey_biospec_wide)[1] = "Site Name"
+
+# Create kable table
+kable_biospec <- data_survey_biospec_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Have you donated any samples of blood, urine, or saliva for Connect?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_biospec
+```
+```{r, echo = FALSE}
+# Queston 21: Communication About Biospecimen Donation
+
+# First, group by site_name and comms_biospeciment_donation, summarizing the counts
+data_survey_comm_bs <- data_survey %>%
+  group_by(site_name, comms_biospeciment_donation) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Pivot the data into wide format
+data_survey_comm_bs_wide <- data_survey_comm_bs %>%
+  pivot_wider(
+    names_from = comms_biospeciment_donation,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Ensure that the values in the wide table are numeric
+data_survey_comm_bs_wide[, -1] <- lapply(data_survey_comm_bs_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_comm_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_comm_bs_wide <- bind_rows(data_survey_comm_bs_wide, total_row)
+
+data_survey_comm_bs_wide$total = data_survey_biospec_wide$Yes
+data_survey_comm_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_comm_bs_wide$total)
+data_survey_comm_bs_wide$total <- as.numeric(data_survey_comm_bs_wide$total)
+data_survey_comm_bs_wide$Skipped = data_survey_comm_bs_wide$total - rowSums(data_survey_comm_bs_wide[, 3:7], na.rm = TRUE)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_comm_bs_wide <- data_survey_comm_bs_wide %>%
+  mutate(across(starts_with("Very well"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_comm_bs_wide = data_survey_comm_bs_wide[, c(1,5,4,3,6,2,9,8)]
+colnames(data_survey_comm_bs_wide)[8] = "Total Eligible Participants"
+colnames(data_survey_comm_bs_wide)[1] = "Site Name"
+
+# Create kable table
+kable_comm <- data_survey_comm_bs_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How well did the Connect team communicate with you about donating samples?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_comm
+```
+
+```{r, echo = FALSE}
+# Question 22: Time for Biospecimen Donation
+
+# First, group by site_name and time_biospecimen_donation, summarizing the counts
+data_survey_time_bs <- data_survey %>%
+  group_by(site_name, time_biospecimen_donation) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_time_bs <- data_survey_time_bs %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_time_bs_wide <- data_survey_time_bs %>%
+  pivot_wider(
+    names_from = time_biospecimen_donation,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_time_bs_wide)[6] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_time_bs_wide[, -1] <- lapply(data_survey_time_bs_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_time_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_time_bs_wide <- bind_rows(data_survey_time_bs_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_time_bs_wide <- data_survey_time_bs_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_time_bs_wide = data_survey_time_bs_wide[, c(1,4,3,5,6,2)]
+colnames(data_survey_time_bs_wide)[6] = "Total Participants"
+colnames(data_survey_time_bs_wide)[1] = "Site Name"
+
+# Create kable table
+kable_time <- data_survey_time_bs_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How would you rate your experience donating samples? (Time)", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_time
+```
+```{r, echo = FALSE}
+# Question 23: Ease of Donating Samples
+
+# First, group by site_name and ease_donating_samples, summarizing the counts
+data_survey_ease_bs <- data_survey %>%
+  group_by(site_name, ease_donating_samples) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_ease_bs <- data_survey_ease_bs %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_ease_bs_wide <- data_survey_ease_bs %>%
+  pivot_wider(
+    names_from = ease_donating_samples,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_ease_bs_wide)[8] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_ease_bs_wide[, -1] <- lapply(data_survey_ease_bs_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_ease_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_ease_bs_wide <- bind_rows(data_survey_ease_bs_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_ease_bs_wide <- data_survey_ease_bs_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_ease_bs_wide = data_survey_ease_bs_wide[, c(1,4,3,6,5,7,8,2)]
+colnames(data_survey_ease_bs_wide)[8] = "Total Participants"
+colnames(data_survey_ease_bs_wide)[1] = "Site Name"
+
+# Create kable table
+kable_ease <- data_survey_ease_bs_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How would you rate your experience donating samples? (Ease)", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_ease
+```
+
+```{r, echo = FALSE}
+# Question 24: Experience with the Connect Team
+
+# First, group by site_name and ease_donating_samples, summarizing the counts
+data_survey_exp <- data_survey %>%
+  group_by(site_name, exp_dontating_samples) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_exp <- data_survey_exp %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_exp_wide <- data_survey_exp %>%
+  pivot_wider(
+    names_from = exp_dontating_samples,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_exp_wide)[8] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_exp_wide[, -1] <- lapply(data_survey_exp_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_exp_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_exp_wide <- bind_rows(data_survey_exp_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_exp_wide <- data_survey_exp_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_exp_wide = data_survey_exp_wide[, c(1,3,4,5,6,7,8,2)]
+colnames(data_survey_exp_wide)[8] = "Total Participants"
+colnames(data_survey_exp_wide)[1] = "Site Name"
+
+# Create kable table
+kable_ease <- data_survey_exp_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How was your experience with the Connect team when you donated samples?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_ease
+```
+```{r, echo = FALSE}
+# Question 26: Sample Survey Completion
+
+# First, group by site_name and sample_survey_completion, summarizing the counts
+data_survey_ss <- data_survey %>%
+  group_by(site_name, sample_survey_completion) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_ss <- data_survey_ss %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_ss_wide <- data_survey_ss %>%
+  pivot_wider(
+    names_from = sample_survey_completion,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_ss_wide)[6] = "Skipped"
+
+# Ensure that the values in the wide table are numeric
+data_survey_ss_wide[, -1] <- lapply(data_survey_ss_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_ss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_ss_wide <- bind_rows(data_survey_ss_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_ss_wide <- data_survey_ss_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_ss_wide = data_survey_ss_wide[, c(1,3,4,5,6,2)]
+colnames(data_survey_ss_wide)[6] = "Total Participants"
+colnames(data_survey_ss_wide)[1] = "Site Name"
+
+# Create kable table
+kable_ss <- data_survey_ss_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How was your experience with the Connect team when you donated samples?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_ss
+```
+```{r, echo = FALSE}
+# Question 27: Sample Survey Completion at Visit
+
+# First, group by site_name and at_visit_sample_survey, summarizing the counts
+data_survey_vss <- data_survey %>%
+  group_by(site_name, at_visit_sample_survey) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Pivot the data into wide format
+data_survey_vss_wide <- data_survey_vss %>%
+  pivot_wider(
+    names_from = at_visit_sample_survey,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Ensure that the values in the wide table are numeric
+data_survey_vss_wide[, -1] <- lapply(data_survey_vss_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_vss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_vss_wide <- bind_rows(data_survey_vss_wide, total_row)
+
+
+data_survey_vss_wide$total = data_survey_ss_wide$Yes
+data_survey_vss_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_vss_wide$total)
+data_survey_vss_wide$total <- as.numeric(data_survey_vss_wide$total)
+data_survey_vss_wide$Skipped = data_survey_vss_wide$total - rowSums(data_survey_vss_wide[, 2:4], na.rm = TRUE)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_vss_wide <- data_survey_vss_wide %>%
+  mutate(across(starts_with("No"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_vss_wide = data_survey_vss_wide[, c(1,4,2,3,7,6)]
+colnames(data_survey_vss_wide)[6] = "Total Eligible Participants"
+colnames(data_survey_vss_wide)[1] = "Site Name"
+
+# Create kable table
+kable_vss <- data_survey_vss_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Did you complete the sample survey at your Connect visit?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_vss
+```
+
+```{r, echo = FALSE}
+# Question 28: Personal Device Usage for Sample Survey
+# Calculate samp_participants_total per site
+samp_participants_total <- data_survey_ss_wide %>%
+  select(`Site Name`, Yes) %>%
+  rename(site_name = `Site Name`) %>%
+  mutate(samp_participants_total = as.numeric(gsub("\\s*\\(.*?\\)", "", Yes))) %>%
+  select(-Yes)
+
+# Summarize data_dev and join samp_participants_total for percentages
+samp_basic <- data_dev %>%
+  group_by(site_name) %>%
+  summarise(
+    samp_prov_healthcare_total_select = sum(as.integer(samp_prov_healthcare == 1), na.rm = TRUE),
+    samp_prov_healthcare_total_non_select = sum(as.integer(samp_prov_healthcare == 0), na.rm = TRUE),
+    samp_borrow_total_select = sum(as.integer(samp_borrow == 1), na.rm = TRUE),
+    samp_borrow_total_non_select = sum(as.integer(samp_borrow == 0), na.rm = TRUE),
+    samp_public_total_select = sum(as.integer(samp_public == 1), na.rm = TRUE),
+    samp_public_total_non_select = sum(as.integer(samp_public == 0), na.rm = TRUE),
+    samp_yes_total_select = sum(as.integer(samp_yes == 1), na.rm = TRUE),
+    samp_yes_total_non_select = sum(as.integer(samp_yes == 0), na.rm = TRUE),
+    samp_yes_emp_total_select = sum(as.integer(samp_yes_emp == 1), na.rm = TRUE),
+    samp_yes_emp_total_non_select = sum(as.integer(samp_yes_emp == 0), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  left_join(samp_participants_total, by = "site_name")
+  
+# Ensure that the values in the wide table are numeric
+samp_basic[, -1] <- lapply(samp_basic[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(samp_basic[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+samp_basic <- bind_rows(samp_basic, total_row)
+
+
+  # Calculate percentages for each variable and format as desired
+samp_basic = samp_basic%>% 
+  mutate(
+    samp_prov_healthcare_select_percent = paste0(samp_prov_healthcare_total_select, " (", percent(samp_prov_healthcare_total_select / samp_participants_total, accuracy = 0.1), ")"),
+    samp_prov_healthcare_non_select_percent = paste0(samp_prov_healthcare_total_non_select, " (", percent(samp_prov_healthcare_total_non_select / samp_participants_total, accuracy = 0.1), ")"),
+    
+    samp_borrow_select_percent = paste0(samp_borrow_total_select, " (", percent(samp_borrow_total_select / samp_participants_total, accuracy = 0.1), ")"),
+    samp_borrow_non_select_percent = paste0(samp_borrow_total_non_select, " (", percent(samp_borrow_total_non_select / samp_participants_total, accuracy = 0.1), ")"),
+    
+    samp_public_select_percent = paste0(samp_public_total_select, " (", percent(samp_public_total_select / samp_participants_total, accuracy = 0.1), ")"),
+    samp_public_non_select_percent = paste0(samp_public_total_non_select, " (", percent(samp_public_total_non_select / samp_participants_total, accuracy = 0.1), ")"),
+    
+    samp_yes_select_percent = paste0(samp_yes_total_select, " (", percent(samp_yes_total_select / samp_participants_total, accuracy = 0.1), ")"),
+    samp_yes_non_select_percent = paste0(samp_yes_total_non_select, " (", percent(samp_yes_total_non_select / samp_participants_total, accuracy = 0.1), ")"),
+    
+    samp_yes_emp_select_percent = paste0(samp_yes_emp_total_select, " (", percent(samp_yes_emp_total_select / samp_participants_total, accuracy = 0.1), ")"),
+    samp_yes_emp_non_select_percent = paste0(samp_yes_emp_total_non_select, " (", percent(samp_yes_emp_total_non_select / samp_participants_total, accuracy = 0.1), ")")
+  )
+
+# Select only percentage columns before renaming
+samp_basic <- samp_basic %>%
+  select(site_name, 
+         samp_prov_healthcare_select_percent, 
+         samp_prov_healthcare_non_select_percent,
+         samp_borrow_select_percent, 
+         samp_borrow_non_select_percent,
+         samp_public_select_percent, 
+         samp_public_non_select_percent,
+         samp_yes_select_percent, 
+         samp_yes_non_select_percent,
+         samp_yes_emp_select_percent, 
+         samp_yes_emp_non_select_percent,
+         samp_participants_total)
+
+# Rename columns for display
+colnames(samp_basic) <- c("Site Name", 
+                             "Provided by Healthcare--Selected", 
+                             "Provided by Healthcare--Not Selected", 
+                             "Borrowed--Selected", 
+                             "Borrowed--Not Selected",
+                             "Public Device--Selected", 
+                             "Public Device--Not Selected",
+                             "Yes--Selected", 
+                             "Yes--Not Selected",
+                             "Yes Employer Provided--Selected", 
+                             "Yes Employer Provided--Not Selected",
+                             "Total Participants")
+samp_basic <- samp_basic %>%
+  select(`Site Name`, matches("Selected$") &! matches("Not Selected"), `Total Participants`)
+
+# Print the table
+knitr::kable(samp_basic, 
+             caption = 'Did you use your own personal device to complete the sample survey? Select all that apply.', 
+             row.names = FALSE,
+             align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"), 
+             booktabs = TRUE, 
+             longtable = TRUE) %>% 
+  kableExtra::kable_styling(
+      latex_options = c("hold_position", "scale_down", "repeat_header", "landscape")
+  )
+```
+
+```{r, echo = FALSE}
+# Question 29: Reasons for Not Completing Sample Survey
+
+# First, group by site_name and why_not_sample_survey, summarizing the counts
+data_survey_not_ss <- data_survey %>%
+  group_by(site_name, why_not_sample_survey) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Pivot the data into wide format
+data_survey_not_ss_wide <- data_survey_not_ss %>%
+  pivot_wider(
+    names_from = why_not_sample_survey,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+# Ensure that the values in the wide table are numeric
+data_survey_not_ss_wide[, -1] <- lapply(data_survey_not_ss_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_not_ss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_not_ss_wide <- bind_rows(data_survey_not_ss_wide, total_row)
+
+
+data_survey_not_ss_wide$total = data_survey_ss_wide$No
+data_survey_not_ss_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_not_ss_wide$total)
+data_survey_not_ss_wide$total <- as.numeric(data_survey_not_ss_wide$total)
+data_survey_not_ss_wide$Skipped = data_survey_not_ss_wide$total - rowSums(data_survey_not_ss_wide[, 3:8], na.rm = TRUE)
+
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_not_ss_wide <- data_survey_not_ss_wide %>%
+  mutate(across(starts_with("I am having"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_not_ss_wide = data_survey_not_ss_wide[, c(1,3:5, 7,8,6,10,9)]
+colnames(data_survey_not_ss_wide)[9] = "Total Eligible Participants"
+colnames(data_survey_not_ss_wide)[1] = "Site Name"
+
+# Create kable table
+kable_not_ss <- data_survey_not_ss_wide %>%
+  kable("latex", booktabs = TRUE, caption = "Please choose the reason that fits best to describe why you have not completed the sample survey", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_not_ss
+```
+
+```{r, echo = FALSE}
+# Question 31: Length Preference
+
+# First, group by site_name and sample_survey_completion, summarizing the counts
+data_survey_sslen <- data_survey %>%
+  group_by(site_name, survey_length_pref) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_sslen <- data_survey_sslen %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_sslen_wide <- data_survey_sslen %>%
+  pivot_wider(
+    names_from = survey_length_pref,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_sslen_wide)[6] = "Skipped"
+
+
+# Ensure that the values in the wide table are numeric
+data_survey_sslen_wide[, -1] <- lapply(data_survey_sslen_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_sslen_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_sslen_wide <- bind_rows(data_survey_sslen_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_sslen_wide <- data_survey_sslen_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_sslen_wide = data_survey_sslen_wide[, c(1,4,3,5,6,2)]
+colnames(data_survey_sslen_wide)[6] = "Total Participants"
+colnames(data_survey_sslen_wide)[1] = "Site Name"
+
+# Create kable table
+kable_sslen <- data_survey_sslen_wide %>%
+  kable("latex", booktabs = TRUE, caption = "In general, would you prefer to complete:", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_sslen
+```
+```{r, echo = FALSE}
+# Question 32: Overall Experience
+
+# First, group by site_name and overall_experience, summarizing the counts
+data_survey_over <- data_survey %>%
+  group_by(site_name, overall_experience) %>%
+  summarise(Freq = n(), .groups = "drop")
+
+# Join total counts back to the summarized data
+data_survey_over <- data_survey_over %>%
+  left_join(site_totals, by = "site_name")
+
+# Pivot the data into wide format
+data_survey_over_wide <- data_survey_over %>%
+  pivot_wider(
+    names_from = overall_experience,
+    values_from = Freq,
+    values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
+  )
+
+colnames(data_survey_over_wide)[8] = "Skipped"
+
+
+# Ensure that the values in the wide table are numeric
+data_survey_over_wide[, -1] <- lapply(data_survey_over_wide[, -1], as.numeric)
+
+# Add a total row using colSums
+total_row <- colSums(data_survey_over_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
+total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+
+# Append the total row to the original data
+data_survey_over_wide <- bind_rows(data_survey_over_wide, total_row)
+
+# Calculate percentages for each response and format them in parentheses
+data_survey_over_wide <- data_survey_over_wide %>%
+  mutate(across(starts_with("total"):starts_with("Skipped"),
+                ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
+                .names = "{.col}")) # Creating formatted strings
+
+data_survey_over_wide = data_survey_over_wide[, c(1,7,6,5,3,4,8,2)]
+colnames(data_survey_over_wide)[8] = "Total Participants"
+colnames(data_survey_over_wide)[1] = "Site Name"
+
+# Create kable table
+kable_over <- data_survey_over_wide %>%
+  kable("latex", booktabs = TRUE, caption = "How would you rate your overall experience?", align = "l") %>%
+  kable_styling(latex_options = "hold_position")
+
+# Print the kable table
+kable_over
+```
+
+
+```{r, echo = FALSE}
+# Question 35: Why they joined Connect
+data_why <- data_survey %>%
+  group_by(site_name) %>%
+  summarise(
+    participants_total = n(),
+
+    # Count and percentage for "Cancer Personal Impact"
+    cancer_personal_impact_selected = paste0(
+      sum(as.integer(why_joined_cancer_personal_impact == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_cancer_personal_impact == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    cancer_personal_impact_not_selected = paste0(
+      sum(as.integer(why_joined_cancer_personal_impact == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_cancer_personal_impact == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Cancer Research"
+    cancer_research_selected = paste0(
+      sum(as.integer(why_joined_cancer_research == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_cancer_research == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    cancer_research_not_selected = paste0(
+      sum(as.integer(why_joined_cancer_research == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_cancer_research == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Friend Involved"
+    friend_involved_selected = paste0(
+      sum(as.integer(why_joined_friend_involved == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_friend_involved == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    friend_involved_not_selected = paste0(
+      sum(as.integer(why_joined_friend_involved == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_friend_involved == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Healthcare System Representative"
+    hc_system_rep_selected = paste0(
+      sum(as.integer(why_joined_hc_system_rep == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_hc_system_rep == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    hc_system_rep_not_selected = paste0(
+      sum(as.integer(why_joined_hc_system_rep == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_hc_system_rep == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Like Research"
+    like_research_selected = paste0(
+      sum(as.integer(why_joined_like_research == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_like_research == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    like_research_not_selected = paste0(
+      sum(as.integer(why_joined_like_research == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_like_research == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "NCI"
+    nci_selected = paste0(
+      sum(as.integer(why_joined_nci == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_nci == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    nci_not_selected = paste0(
+      sum(as.integer(why_joined_nci == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_nci == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Team"
+    team_selected = paste0(
+      sum(as.integer(why_joined_team == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_team == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    team_not_selected = paste0(
+      sum(as.integer(why_joined_team == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_team == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Payment"
+    payment_selected = paste0(
+      sum(as.integer(why_joined_payment == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_payment == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    payment_not_selected = paste0(
+      sum(as.integer(why_joined_payment == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_payment == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+
+    # Count and percentage for "Helping Others"
+    helping_selected = paste0(
+      sum(as.integer(why_joined_help_other == 1), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_help_other == 1), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    ),
+    helping_not_selected = paste0(
+      sum(as.integer(why_joined_help_other == 0), na.rm = TRUE), " (",
+      percent(sum(as.integer(why_joined_help_other == 0), na.rm = TRUE) / participants_total, accuracy = 0.1), ")"
+    )
+  )
+
+# Rename columns of table_why with Selected and Not Selected
+colnames(data_why) <- c(
+  "Site Name",
+  "Total Participants",
+  "Cancer Personal Impact",
+  "Cancer Personal Impact Not Selected",
+  "Cancer Research", 
+  "Cancer Research Not Selected", 
+  "Friend Involved",
+  "Friend Involved Not Selected",
+  "Healthcare System Rep", 
+  "Healthcare System Rep Not Selected", 
+  "Like Research",
+  "Like Research Not Selected",
+  "NCI", 
+  "NCI Not Selected", 
+  "Team",
+  "Team Not Selected",
+  "Payment",
+  "Payment Not Selected",
+  "Helping",
+  "Helping Not Selected"
+)
+
+
+# Select only the "Selected" columns
+data_why <- data_why %>%
+  select(!contains("Not Selected"), "Total Participants")
+
+# Calculate total row for data_why
+total_row <- data_why %>%
+  summarise(
+    `Site Name` = "Total",
+    `Total Participants` = sum(`Total Participants`, na.rm = TRUE),
+    `Cancer Personal Impact` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Cancer Personal Impact`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Cancer Personal Impact`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Cancer Research` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Cancer Research`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Cancer Research`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Friend Involved` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Friend Involved`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Friend Involved`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Healthcare System Rep` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Healthcare System Rep`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Healthcare System Rep`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Like Research` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Like Research`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Like Research`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `NCI` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `NCI`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `NCI`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Team` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Team`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Team`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Payment` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Payment`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Payment`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    ),
+    `Helping` = paste0(
+      sum(as.integer(sub(" \\(.*\\)", "", `Helping`)), na.rm = TRUE), " (",
+      percent(sum(as.integer(sub(" \\(.*\\)", "", `Helping`)), na.rm = TRUE) / sum(`Total Participants`, na.rm = TRUE), accuracy = 0.1), ")"
+    )
+  )
+
+# Append the total row to the data_why table
+data_why <- bind_rows(data_why, total_row)
+
+# Create the Kable table with a caption, footnote, and landscape format
+kable_why <- knitr::kable(data_why, 
+                          caption = 'Please select the top three reasons that helped you decide to join Connect.', 
+                          row.names = FALSE, 
+                          align = c("l", rep("c", ncol(data_why) - 1)), 
+                          booktabs = TRUE, 
+                          format = "latex", 
+                          longtable = FALSE) %>% 
+  kableExtra::kable_styling(latex_options = c("hold_position", "landscape", "scale_down")) %>%
+  kableExtra::add_footnote("Select all that apply. Total responses may exceed total number of respondents.", notation = "none") %>%
+  kableExtra::kable_styling(font_size = 10)
+
+# Print the Kable table
+kable_why
+
+```
+

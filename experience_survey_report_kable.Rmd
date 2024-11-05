@@ -443,7 +443,7 @@ kable_comms <- data_survey_comms %>%
 kable_comms
 ```
 
-```{r, restuls= "asis", echo = FALSE}
+```{r, echo = FALSE}
 # Question 14: Information from communications
 data_survey_info_needed = as.data.frame(table((data_survey$info_needed)))
 data_survey_info_needed$Var1= factor(data_survey_info_needed$Var1, levels = c("Yes", "No", "Skipped", "Total"))
@@ -500,7 +500,7 @@ data_survey_first <- data_survey_first %>%
 
 kable_first <- data_survey_first %>%
   arrange(Var1) %>%
-  kable("latex", booktabs = TRUE, 
+  kable("html", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "Have you completed the first survey for Connect?") %>%  # Add caption
@@ -538,7 +538,7 @@ data_survey_not_first <- data_survey_not_first %>%
 
 kable_not_first <- data_survey_not_first %>%
   arrange(Var1) %>%
-  kable("latex", booktabs = TRUE, 
+  kable("html", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "Please choose the reason that best describes why you have
@@ -606,7 +606,7 @@ kable_biospec = data_survey_biospec %>%
   kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"), 
         align = c("l", "c", "c"),
-        caption = "What do you think about the length of the first survey?") %>%
+        caption = "Have you donated any samples of blood, urine, or saliva for Connect?") %>%
   kable_styling(latex_options = "hold_position")
 kable_biospec
 
@@ -774,9 +774,9 @@ kable_ss_comp
 
 ```
 ```{r, echo = FALSE}
-# Eligible for Question 28
+# Eligible for Question 27
 elig_ss = data_survey_ss_comp$Freq[3]
-# Eligible for Question 29
+# Eligible for Question 28
 elig_not_ss = data_survey_ss_comp$Freq[1]
 ```
 
