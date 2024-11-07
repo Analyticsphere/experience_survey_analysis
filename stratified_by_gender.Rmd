@@ -1,5 +1,5 @@
 ---
-title: "Experience Survey Report, Stratified by Site"
+title: "Experience Survey Report, Stratified by Gender"
 author: "Leila Orszag"
 date: 'Data Extracted and Report Ran: `r Sys.Date()`'
 output:
@@ -18,7 +18,6 @@ header-includes: \usepackage[labelformat=empty]{caption} \usepackage{placeins} \
   \usepackage{pdflscape}
 geometry: paperwidth=16in, paperheight=8.5in, margin=0.5in
 ---
-
 
 ```{r, echo = FALSE, message = FALSE, warning = FALSE}
 # Setup
@@ -198,37 +197,62 @@ data_dev <- data_dev %>%
 ```
 
 ```{r, echo = FALSE}
-sql_site <- glue::glue(
+sql_gender1 <- glue::glue(
     "
       SELECT 
       Connect_ID,
-      d_827220437 as site_name
-    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+      D_289664241_D_289664241 as gender
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.module1_v2_JP`
     ")
     
 # Query the data and store as reference object
-data_site <- dbGetQuery(con_completion, sql_site)
+data_gender1 <- dbGetQuery(con_completion, sql_gender1)
 ```
 
 ```{r, echo = FALSE}
-data_site[] <- lapply(data_site, function(x) {
+sql_gender2 <- glue::glue(
+    "
+      SELECT 
+      Connect_ID,
+      D_289664241_D_289664241 as gender
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.module1_v1_JP`
+    ")
+    
+# Query the data and store as reference object
+data_gender2 <- dbGetQuery(con_completion, sql_gender2)
+```
+
+```{r}
+data_gender = data_gender1 %>%
+  left_join(data_gender2, by = "Connect_ID", suffix = c("_1", "_2"))%>%
+  mutate(gender = coalesce(gender_1, gender_2)) %>%
+  select(-gender_1, -gender_2)
+```
+
+
+```{r, echo = FALSE}
+data_gender[] <- lapply(data_gender, function(x) {
   if (is.character(x)) {
-    x <- gsub("531629870", "Health Partners", x)
-    x <- gsub("548392715", "Henry Ford", x)
-    x <- gsub("125001209", "KP Colorado", x)
-    x <- gsub("327912200", "KP Georgia", x)
-    x <- gsub("300267574", "KP Hawaii", x)
-    x <- gsub("452412599", "KP Northwest", x)
-    x <- gsub("303349821", "Marshfield", x)
-    x <- gsub("657167265", "Sanford", x)
-    x <- gsub("809703864", "U Chicago", x)
-    x <- gsub("472940358", "Baylor Scott & White", x)
-    x <- gsub("517700004", "NCI", x)
-    x <- gsub("181769837", "Other", x)
+    x <- gsub("983318667", "Man", x)
+    x <- gsub("218837028", "Woman", x)
+    x <- gsub("654207589", "Man", x)
+    x <- gsub("536341288", "Woman", x)
+    x <- gsub("405267600", "Transgender Man", x)
+    x <- gsub("873138103", "Transgender Woman", x)
+    x <- gsub("805712793", "Genderqueer", x)
+    x <- gsub("486192236", "Non-binary", x)
+    x <- gsub("807835037", "Other", x)
+    x <- gsub("746038746", "Declined", x)
   }
 }
 )
-data_site$site_name = as.factor(data_site$site_name)
+data_gender$gender <- factor(data_gender$gender, 
+                             levels = c("Man", "Woman", "Transgender Man", "Transgender Woman", 
+                                        "Genderqueer", "Non-binary", "Other", "Declined"))
+```
+
+```{r}
+summary(data_gender$gender)
 ```
 
 ```{r, echo = FALSE}
@@ -236,11 +260,11 @@ num_participants = dim(data_survey)[1]
 ```
 
 ```{r, echo = FALSE}
-data_dev = left_join(data_dev, data_site, by = "Connect_ID")
+data_dev = left_join(data_dev, data_gender, by = "Connect_ID")
 ```
 
 ```{r, echo = FALSE}
-data_survey = left_join(data_survey, data_site, by = "Connect_ID")
+data_survey = left_join(data_survey, data_gender, by = "Connect_ID")
 ```
 
 
@@ -253,7 +277,7 @@ device_basic = as.data.frame(cbind(device_phone, device_tablet, device_computer)
 # Group by Site and calculate counts for each device type
 
 device_basic <- data_dev %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarise(
     participants_total = n(),
     
@@ -292,13 +316,13 @@ device_basic <- data_dev %>%
 # Select and reorder columns for display
 device_basic <- device_basic %>%
   select(
-    site_name, 
+    gender, 
     participants_total, device_phone_select_percent, device_phone_non_select_percent, 
     device_tablet_select_percent, device_tablet_non_select_percent,
     device_computer_select_percent, device_computer_non_select_percent
   )
 
-colnames(device_basic) = c("Site Name", 
+colnames(device_basic) = c("Gender", 
                            "Total Participants",
                            "Phone--Selected", 
                            "Phone--Not Selected", 
@@ -323,7 +347,7 @@ device_basic_counts <- device_basic %>%
 # Calculate total row counts
 total_row_counts <- device_basic_counts %>%
   summarise(
-    `Site Name` = "Total",
+    `Gender` = "Total",
     `Phone--Selected` = sum(`Phone--Selected`, na.rm = TRUE),
     `Phone--Not Selected` = sum(`Phone--Not Selected`, na.rm = TRUE),
     `Tablet--Selected` = sum(`Tablet--Selected`, na.rm = TRUE),
@@ -353,14 +377,13 @@ knitr::kable(device_basic,
              row.names = FALSE,
              align = c("l", "c", "c", "c", "c", "c", "c", "c"), 
              booktabs = TRUE) %>% 
-  kableExtra::kable_styling(latex_options = c("hold_position", "scale_down", "landscape")) %>%
-  kableExtra::add_header_above(c(" " = 1, "Phone" = 2, "Tablet" = 2, "Computer" = 2, " " = 1))
+  kableExtra::kable_styling(latex_options = c("hold_position", "scale_down", "landscape"))
 ```
 
 ```{r, echo= FALSE}
 # Question 6: Device Ownernship
 connect_basic <- data_dev %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarise(
     participants_total = n(),
     
@@ -418,7 +441,7 @@ connect_basic <- data_dev %>%
 # Select and reorder columns for display
 connect_basic <- connect_basic %>%
   select(
-    site_name, 
+    gender, 
     participants_total, 
     prov_healthcare_select_percent, prov_healthcare_non_select_percent, 
     borrow_select_percent, borrow_non_select_percent,
@@ -428,7 +451,7 @@ connect_basic <- connect_basic %>%
   )
 
 # Rename columns for display
-colnames(connect_basic) <- c("Site Name", 
+colnames(connect_basic) <- c("Gender", 
                              "Total Participants",
                              "Provided by Healthcare--Selected", 
                              "Provided by Healthcare--Not Selected", 
@@ -457,7 +480,7 @@ connect_basic_counts <- connect_basic %>%
 # Calculate total row counts
 total_row_counts <- connect_basic_counts %>%
   summarise(
-    `Site Name` = "Total",
+    `Gender` = "Total",
     `Provided by Healthcare--Selected` = sum(`Provided by Healthcare--Selected`, na.rm = TRUE),
     `Borrowed--Selected` = sum(`Borrowed--Selected`, na.rm = TRUE),
     `Public Device--Selected` = sum(`Public Device--Selected`, na.rm = TRUE),
@@ -494,19 +517,19 @@ knitr::kable(connect_basic,
 
 ```{r, echo= FALSE}
 # Question 7: Ease of using MyConnect
-# First, group by site_name and my_connect_ease, summarizing the counts
+# First, group by gender and my_connect_ease, summarizing the counts
 data_survey_ease <- data_survey %>%
-  group_by(site_name, my_connect_ease) %>%
+  group_by(gender, my_connect_ease) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Calculate total responses per site_name
-site_totals <- data_survey %>%
-  group_by(site_name) %>%
+gender_totals <- data_survey %>%
+  group_by(gender) %>%
   summarise(total = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_ease <- data_survey_ease %>%
-  left_join(site_totals, by = "site_name")
+  left_join(gender_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_ease_wide <- data_survey_ease %>%
@@ -518,6 +541,7 @@ data_survey_ease_wide <- data_survey_ease %>%
 
 # Rename columns if needed
 colnames(data_survey_ease_wide)[8] <- "Skipped"
+rownames(data_survey_ease_wide)[9] <- "Skipped"
 
 # Ensure that the values in the wide table are numeric
 data_survey_ease_wide[, -1] <- lapply(data_survey_ease_wide[, -1], as.numeric)
@@ -525,7 +549,7 @@ data_survey_ease_wide[, -1] <- lapply(data_survey_ease_wide[, -1], as.numeric)
 # Add a total row using colSums
 total_row <- colSums(data_survey_ease_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Combine the total row with the original data
 data_survey_ease_wide <- bind_rows(data_survey_ease_wide, total_row)
@@ -537,14 +561,14 @@ data_survey_ease_wide <- data_survey_ease_wide %>%
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
-data_survey_ease_wide = data_survey_ease_wide[,c(1,4,3,6,5,7,8,2)]
+data_survey_ease_wide = data_survey_ease_wide[,c(1,6,3,5,4,7,8,2)]
 # Rename columns if needed
 colnames(data_survey_ease_wide)[8] <- "Total Participants"
-colnames(data_survey_ease_wide)[1] <- "Site Name"
+colnames(data_survey_ease_wide)[1] <- "Gender"
 
 # Create and print the kable table
 kable_ease <- data_survey_ease_wide %>%
-  kable("latex", booktabs = TRUE, caption = 'How easy or hard is it to use MyConnect by Site?', align = "l") %>%
+  kable("html", booktabs = TRUE, caption = 'How easy or hard is it to use MyConnect by Site?', align = "l") %>%
   kable_styling(latex_options = c("hold_position", "scale_down", "landscape"))
 
 kable_ease
