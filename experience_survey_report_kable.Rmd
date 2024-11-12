@@ -500,7 +500,7 @@ data_survey_first <- data_survey_first %>%
 
 kable_first <- data_survey_first %>%
   arrange(Var1) %>%
-  kable("html", booktabs = TRUE, 
+  kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "Have you completed the first survey for Connect?") %>%  # Add caption
@@ -538,7 +538,7 @@ data_survey_not_first <- data_survey_not_first %>%
 
 kable_not_first <- data_survey_not_first %>%
   arrange(Var1) %>%
-  kable("html", booktabs = TRUE, 
+  kable("latex", booktabs = TRUE, 
         col.names = c("Response", "Number of Participants", "Percentage of Participants"),
         align = c("l", "c", "c"),
         caption = "Please choose the reason that best describes why you have
@@ -650,17 +650,19 @@ kable_biospec_com
 
 ```{r, echo = FALSE}
 # Question 22: Time for Biospecimen Donation
-data_survey_bs_time = as.data.frame(table((data_survey$time_biospecimen_donation)))
+data_survey_elig = data_survey %>%
+  filter(biospecimen_donation == "Yes")
+data_survey_bs_time = as.data.frame(table((data_survey_elig$time_biospecimen_donation)))
 data_survey_bs_time$Var1 = factor(data_survey_bs_time$Var1, levels = c("Too much time", "Right amount of time", "Too little time", "Skipped", "Total"))
 
 # Skipped & Total Rows
 data_survey_bs_time[4, 1]= "Skipped"
 data_survey_bs_time[5, 1]= "Total"
-data_survey_bs_time[4, 2] = num_participants-sum(data_survey_bs_time[1:3, 2])
+data_survey_bs_time[4, 2] = elig_biospec-sum(data_survey_bs_time[1:3, 2])
 data_survey_bs_time[5, 2] = sum(data_survey_bs_time[1:4, 2])
 
 # Calculate Percentages
-data_survey_bs_time$percentage = data_survey_bs_time$Freq/num_participants*100
+data_survey_bs_time$percentage = data_survey_bs_time$Freq/elig_biospec*100
 
 # Format Percentages
 data_survey_bs_time <- data_survey_bs_time %>%
@@ -682,17 +684,17 @@ kable_biospec_time
 
 ```{r, echo = FALSE}
 # Question 23: Ease of Donating Samples
-data_survey_bs_ease = as.data.frame(table((data_survey$ease_donating_samples)))
+data_survey_bs_ease = as.data.frame(table((data_survey_elig$ease_donating_samples)))
 data_survey_bs_ease$Var1 = factor(data_survey_bs_ease$Var1, levels = c("Very easy", "Easy", "Neutral", "Hard", "Very hard", "Skipped", "Total"))
 
 # Skipped & Total Rows
 data_survey_bs_ease[6, 1]= "Skipped"
 data_survey_bs_ease[7, 1]= "Total"
-data_survey_bs_ease[6, 2] = num_participants-sum(data_survey_bs_ease[1:5, 2])
+data_survey_bs_ease[6, 2] = elig_biospec-sum(data_survey_bs_ease[1:5, 2])
 data_survey_bs_ease[7, 2] = sum(data_survey_bs_ease[1:6, 2])
 
 # Calculate Percentages
-data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/num_participants*100
+data_survey_bs_ease$percentage = data_survey_bs_ease$Freq/elig_biospec*100
 
 # Format Percentages
 data_survey_bs_ease <- data_survey_bs_ease %>%
@@ -712,18 +714,18 @@ kable_biospec_ease
 
 ```{r, echo = FALSE}
 # Question 24: Experience with the Connect Team
-data_survey_bs_exp = as.data.frame(table((data_survey$exp_dontating_samples)))
+data_survey_bs_exp = as.data.frame(table((data_survey_elig$exp_dontating_samples)))
 data_survey_bs_exp$Var1 = factor(data_survey_bs_exp$Var1, levels = c("Very good", "Good", "Neutral", "Poor", "Very poor", "Skipped", "Total"))
 
 
 # Skipped & Total Rows
 data_survey_bs_exp[6, 1]= "Skipped"
 data_survey_bs_exp[7, 1]= "Total"
-data_survey_bs_exp[6, 2] = num_participants-sum(data_survey_bs_exp[1:5, 2])
+data_survey_bs_exp[6, 2] = elig_biospec-sum(data_survey_bs_exp[1:5, 2])
 data_survey_bs_exp[7, 2] = sum(data_survey_bs_exp[1:6, 2])
 
 # Calculate Percentages
-data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/num_participants*100
+data_survey_bs_exp$percentage = data_survey_bs_exp$Freq/elig_biospec*100
 
 # Format Percentages
 data_survey_bs_exp <- data_survey_bs_exp %>%

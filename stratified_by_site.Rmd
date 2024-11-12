@@ -231,9 +231,6 @@ data_site[] <- lapply(data_site, function(x) {
 data_site$site_name = as.factor(data_site$site_name)
 ```
 
-```{r, echo = FALSE}
-num_participants = dim(data_survey)[1]
-```
 
 ```{r, echo = FALSE}
 data_dev = left_join(data_dev, data_site, by = "Connect_ID")
@@ -1058,12 +1055,9 @@ kable_comm
 
 # First, group by site_name and time_biospecimen_donation, summarizing the counts
 data_survey_time_bs <- data_survey %>%
+  filter(biospecimen_donation == "Yes") %>%
   group_by(site_name, time_biospecimen_donation) %>%
   summarise(Freq = n(), .groups = "drop")
-
-# Join total counts back to the summarized data
-data_survey_time_bs <- data_survey_time_bs %>%
-  left_join(site_totals, by = "site_name")
 
 # Pivot the data into wide format
 data_survey_time_bs_wide <- data_survey_time_bs %>%
@@ -1072,8 +1066,6 @@ data_survey_time_bs_wide <- data_survey_time_bs %>%
     values_from = Freq,
     values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
   )
-
-colnames(data_survey_time_bs_wide)[6] = "Skipped"
 
 # Ensure that the values in the wide table are numeric
 data_survey_time_bs_wide[, -1] <- lapply(data_survey_time_bs_wide[, -1], as.numeric)
@@ -1086,13 +1078,18 @@ total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
 # Append the total row to the original data
 data_survey_time_bs_wide <- bind_rows(data_survey_time_bs_wide, total_row)
 
+data_survey_time_bs_wide$total = data_survey_biospec_wide$Yes
+data_survey_time_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_time_bs_wide$total)
+data_survey_time_bs_wide$total <- as.numeric(data_survey_time_bs_wide$total)
+data_survey_time_bs_wide$Skipped = data_survey_time_bs_wide$total - rowSums(data_survey_time_bs_wide[, 2:4], na.rm = TRUE)
+
 # Calculate percentages for each response and format them in parentheses
 data_survey_time_bs_wide <- data_survey_time_bs_wide %>%
-  mutate(across(starts_with("total"):starts_with("Skipped"),
+  mutate(across(starts_with("Right"):starts_with("Skipped"),
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_time_bs_wide = data_survey_time_bs_wide[, c(1,4,3,5,6,2)]
+data_survey_time_bs_wide = data_survey_time_bs_wide[, c(1,3,2,4,7,6)]
 colnames(data_survey_time_bs_wide)[6] = "Total Participants"
 colnames(data_survey_time_bs_wide)[1] = "Site Name"
 
@@ -1104,17 +1101,15 @@ kable_time <- data_survey_time_bs_wide %>%
 # Print the kable table
 kable_time
 ```
+
 ```{r, echo = FALSE}
 # Question 23: Ease of Donating Samples
 
 # First, group by site_name and ease_donating_samples, summarizing the counts
 data_survey_ease_bs <- data_survey %>%
+  filter(biospecimen_donation == "Yes") %>%
   group_by(site_name, ease_donating_samples) %>%
   summarise(Freq = n(), .groups = "drop")
-
-# Join total counts back to the summarized data
-data_survey_ease_bs <- data_survey_ease_bs %>%
-  left_join(site_totals, by = "site_name")
 
 # Pivot the data into wide format
 data_survey_ease_bs_wide <- data_survey_ease_bs %>%
@@ -1123,8 +1118,6 @@ data_survey_ease_bs_wide <- data_survey_ease_bs %>%
     values_from = Freq,
     values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
   )
-
-colnames(data_survey_ease_bs_wide)[8] = "Skipped"
 
 # Ensure that the values in the wide table are numeric
 data_survey_ease_bs_wide[, -1] <- lapply(data_survey_ease_bs_wide[, -1], as.numeric)
@@ -1137,13 +1130,18 @@ total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
 # Append the total row to the original data
 data_survey_ease_bs_wide <- bind_rows(data_survey_ease_bs_wide, total_row)
 
+data_survey_ease_bs_wide$total = data_survey_biospec_wide$Yes
+data_survey_ease_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_ease_bs_wide$total)
+data_survey_ease_bs_wide$total <- as.numeric(data_survey_ease_bs_wide$total)
+data_survey_ease_bs_wide$Skipped = data_survey_ease_bs_wide$total - rowSums(data_survey_ease_bs_wide[, 2:6], na.rm = TRUE)
+
 # Calculate percentages for each response and format them in parentheses
 data_survey_ease_bs_wide <- data_survey_ease_bs_wide %>%
-  mutate(across(starts_with("total"):starts_with("Skipped"),
+  mutate(across(starts_with("Easy"):starts_with("Skipped"),
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_ease_bs_wide = data_survey_ease_bs_wide[, c(1,4,3,6,5,7,8,2)]
+data_survey_ease_bs_wide = data_survey_ease_bs_wide[, c(1,6,4,5,2,3,9,8)]
 colnames(data_survey_ease_bs_wide)[8] = "Total Participants"
 colnames(data_survey_ease_bs_wide)[1] = "Site Name"
 
@@ -1161,12 +1159,9 @@ kable_ease
 
 # First, group by site_name and ease_donating_samples, summarizing the counts
 data_survey_exp <- data_survey %>%
+  filter(biospecimen_donation=="Yes")%>%
   group_by(site_name, exp_dontating_samples) %>%
   summarise(Freq = n(), .groups = "drop")
-
-# Join total counts back to the summarized data
-data_survey_exp <- data_survey_exp %>%
-  left_join(site_totals, by = "site_name")
 
 # Pivot the data into wide format
 data_survey_exp_wide <- data_survey_exp %>%
@@ -1175,8 +1170,6 @@ data_survey_exp_wide <- data_survey_exp %>%
     values_from = Freq,
     values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
   )
-
-colnames(data_survey_exp_wide)[8] = "Skipped"
 
 # Ensure that the values in the wide table are numeric
 data_survey_exp_wide[, -1] <- lapply(data_survey_exp_wide[, -1], as.numeric)
@@ -1189,13 +1182,19 @@ total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
 # Append the total row to the original data
 data_survey_exp_wide <- bind_rows(data_survey_exp_wide, total_row)
 
+
+data_survey_exp_wide$total = data_survey_biospec_wide$Yes
+data_survey_exp_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_exp_wide$total)
+data_survey_exp_wide$total <- as.numeric(data_survey_exp_wide$total)
+data_survey_exp_wide$Skipped = data_survey_exp_wide$total - rowSums(data_survey_exp_wide[, 3:7], na.rm = TRUE)
+
 # Calculate percentages for each response and format them in parentheses
 data_survey_exp_wide <- data_survey_exp_wide %>%
-  mutate(across(starts_with("total"):starts_with("Skipped"),
+  mutate(across(starts_with("Very"):starts_with("Skipped"),
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_exp_wide = data_survey_exp_wide[, c(1,3,4,5,6,7,8,2)]
+data_survey_exp_wide = data_survey_exp_wide[, c(1,7,5,4,3,2,9,8)]
 colnames(data_survey_exp_wide)[8] = "Total Participants"
 colnames(data_survey_exp_wide)[1] = "Site Name"
 
@@ -1207,6 +1206,7 @@ kable_ease <- data_survey_exp_wide %>%
 # Print the kable table
 kable_ease
 ```
+
 ```{r, echo = FALSE}
 # Question 26: Sample Survey Completion
 
@@ -1400,15 +1400,18 @@ samp_basic <- samp_basic %>%
   select(`Site Name`, matches("Selected$") &! matches("Not Selected"), `Total Participants`)
 
 # Print the table
-knitr::kable(samp_basic, 
+samp_basic_table = knitr::kable(samp_basic, 
              caption = 'Did you use your own personal device to complete the sample survey? Select all that apply.', 
              row.names = FALSE,
              align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"), 
              booktabs = TRUE, 
-             longtable = TRUE) %>% 
+             format = "latex",
+             longtable = FALSE) %>% 
   kableExtra::kable_styling(
-      latex_options = c("hold_position", "scale_down", "repeat_header", "landscape")
+      latex_options = c("hold_position", "scale_down", "repeat_header")
   )
+
+samp_basic_table
 ```
 
 ```{r, echo = FALSE}

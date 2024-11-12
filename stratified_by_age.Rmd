@@ -205,7 +205,7 @@ sql_age <- glue::glue(
       SELECT 
       Connect_ID,
        d_821247024,
-    DATE_DIFF(CAST(SUBSTR(d_205553981, 1, 10) AS DATE), PARSE_DATE('%Y%m%d', CAST(d_371067537 AS STRING)), DAY) / 365 AS age
+    DATE_DIFF(CAST(SUBSTR(d_263355177, 1, 10) AS DATE), PARSE_DATE('%Y%m%d', CAST(d_371067537 AS STRING)), DAY) / 365 AS age
   FROM
     `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
   WHERE
@@ -224,8 +224,9 @@ data_age <- data_age %>%
   mutate(age_group = cut(age, 
                          breaks = c(seq(30, 65, by = 5), 70),  # Extend the last group to 70
                          right = FALSE,
-                         labels = paste(seq(30, 65, by = 5), seq(35, 70, by = 5), sep = "-")))
+                         labels = c(paste(seq(30, 60, by = 5), seq(34, 64, by = 5), sep = "-"), "65-70")))
 ```
+
 
 ```{r, echo = FALSE}
 num_participants = dim(data_survey)[1]
@@ -345,7 +346,7 @@ device_basic <- bind_rows(device_basic, total_row)
 
 # Print the table with knitr and kableExtra
 knitr::kable(device_basic, 
-             caption = 'Which types of devices do you use for MyConnect by Site?', 
+             caption = 'Which types of devices do you use for MyConnect?', 
              row.names = FALSE,
              align = c("l", "c", "c", "c", "c", "c", "c", "c"), 
              booktabs = TRUE) %>% 

@@ -222,7 +222,7 @@ sql_gender2 <- glue::glue(
 data_gender2 <- dbGetQuery(con_completion, sql_gender2)
 ```
 
-```{r}
+```{r, echo = FALSE}
 data_gender = data_gender1 %>%
   left_join(data_gender2, by = "Connect_ID", suffix = c("_1", "_2"))%>%
   mutate(gender = coalesce(gender_1, gender_2)) %>%
@@ -249,10 +249,6 @@ data_gender[] <- lapply(data_gender, function(x) {
 data_gender$gender <- factor(data_gender$gender, 
                              levels = c("Man", "Woman", "Transgender Man", "Transgender Woman", 
                                         "Genderqueer", "Non-binary", "Other", "Declined"))
-```
-
-```{r}
-summary(data_gender$gender)
 ```
 
 ```{r, echo = FALSE}
@@ -522,7 +518,7 @@ data_survey_ease <- data_survey %>%
   group_by(gender, my_connect_ease) %>%
   summarise(Freq = n(), .groups = "drop")
 
-# Calculate total responses per site_name
+# Calculate total responses per gender
 gender_totals <- data_survey %>%
   group_by(gender) %>%
   summarise(total = n(), .groups = "drop")
@@ -547,7 +543,7 @@ rownames(data_survey_ease_wide)[9] <- "Skipped"
 data_survey_ease_wide[, -1] <- lapply(data_survey_ease_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_ease_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_ease_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
 total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
@@ -561,14 +557,14 @@ data_survey_ease_wide <- data_survey_ease_wide %>%
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
-data_survey_ease_wide = data_survey_ease_wide[,c(1,6,3,5,4,7,8,2)]
+data_survey_ease_wide = data_survey_ease_wide[,c(1,7,4,5,3,6,8,2)]
 # Rename columns if needed
 colnames(data_survey_ease_wide)[8] <- "Total Participants"
 colnames(data_survey_ease_wide)[1] <- "Gender"
 
 # Create and print the kable table
 kable_ease <- data_survey_ease_wide %>%
-  kable("html", booktabs = TRUE, caption = 'How easy or hard is it to use MyConnect by Site?', align = "l") %>%
+  kable("latex", booktabs = TRUE, caption = 'How easy or hard is it to use MyConnect by Site?', align = "l") %>%
   kable_styling(latex_options = c("hold_position", "scale_down", "landscape"))
 
 kable_ease
@@ -577,19 +573,19 @@ kable_ease
 
 ```{r, echo= FALSE}
 # Question 8: Technical Problems
-# First, group by site_name and technical_issues, summarizing the counts
+# First, group by gender and technical_issues, summarizing the counts
 data_survey_tech <- data_survey %>%
-  group_by(site_name, technical_issues) %>%
+  group_by(gender, technical_issues) %>%
   summarise(Freq = n(), .groups = "drop")
 
-# Calculate total responses per site_name
+# Calculate total responses per gender
 site_totals <- data_survey %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarise(total = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_tech <- data_survey_tech %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_tech_wide <- data_survey_tech %>%
@@ -606,9 +602,9 @@ colnames(data_survey_tech_wide)[5] <- "Skipped"
 data_survey_tech_wide[, -1] <- lapply(data_survey_tech_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_tech_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_tech_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_tech_wide <- bind_rows(data_survey_tech_wide, total_row)
@@ -624,7 +620,7 @@ data_survey_tech_wide <- data_survey_tech_wide %>%
 # Rearrange columns for final display
 data_survey_tech_wide <- data_survey_tech_wide[, c(1,4,3,5,2)]
 colnames(data_survey_tech_wide)[5] <- "Total Participants"
-colnames(data_survey_tech_wide)[1] <- "Site Name"
+colnames(data_survey_tech_wide)[1] <- "Gender"
 
 # Create the kable table
 kable_tech <- data_survey_tech_wide %>%
@@ -637,19 +633,19 @@ kable_tech
 ```{r, echo = FALSE}
 # Question 10: Finding Everything Looking For 
 
-# First, group by site_name and finding_my_connect, summarizing the counts
+# First, group by gender and finding_my_connect, summarizing the counts
 data_survey_find <- data_survey %>%
-  group_by(site_name, finding_my_connect) %>%
+  group_by(gender, finding_my_connect) %>%
   summarise(Freq = n(), .groups = "drop")
 
-# Calculate total responses per site_name
+# Calculate total responses per gender
 site_totals <- data_survey %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarize(total = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_find <- data_survey_find %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_find_wide <- data_survey_find %>%
@@ -665,9 +661,9 @@ colnames(data_survey_find_wide)[5] = "Skipped"
 data_survey_find_wide[, -1] <- lapply(data_survey_find_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_find_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_find_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_find_wide <- bind_rows(data_survey_find_wide, total_row)
@@ -679,9 +675,9 @@ data_survey_find_wide <- data_survey_find_wide %>%
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
-data_survey_find_wide = data_survey_find_wide[,c(1,3,4,5,2)]
+data_survey_find_wide = data_survey_find_wide[,c(1,4,3,5,2)]
 colnames(data_survey_find_wide)[5] = "Total Participants"
-colnames(data_survey_find_wide)[1] = "Site Name"
+colnames(data_survey_find_wide)[1] = "Gender"
 
 
 # Create kable table
@@ -693,22 +689,23 @@ kable_find <- data_survey_find_wide %>%
 kable_find
 
 ```
+
 ```{r, echo = FALSE}
 # Question 13: Number of Communications
 
-# First, group by site_name and comms, summarizing the counts
+# First, group by gender and comms, summarizing the counts
 data_survey_comms <- data_survey %>%
-  group_by(site_name, comms) %>%
+  group_by(gender, comms) %>%
   summarise(Freq = n(), .groups = "drop")
 
-# Calculate total responses per site_name
+# Calculate total responses per gender
 site_totals <- data_survey %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarize(total = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_comms <- data_survey_comms %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_comms_wide <- data_survey_comms %>%
@@ -725,9 +722,9 @@ colnames(data_survey_comms_wide)[6] = "Skipped"
 data_survey_comms_wide[, -1] <- lapply(data_survey_comms_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_comms_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_comms_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_comms_wide <- bind_rows(data_survey_comms_wide, total_row)
@@ -741,7 +738,7 @@ data_survey_comms_wide <- data_survey_comms_wide %>%
 
 data_survey_comms_wide = data_survey_comms_wide[, c(1,4,3,5,6,2)]
 colnames(data_survey_comms_wide)[6] = "Total Participants"
-colnames(data_survey_comms_wide)[1] = "Site Name"
+colnames(data_survey_comms_wide)[1] = "Gender"
 
 # Create kable table
 kable_comms <- data_survey_comms_wide %>%
@@ -751,17 +748,18 @@ kable_comms <- data_survey_comms_wide %>%
 # Print the kable table
 kable_comms
 ```
+
 ```{r, echo = FALSE}
 # Question 14: Information from communications
 
-# First, group by site_name and info_needed, summarizing the counts
+# First, group by gender and info_needed, summarizing the counts
 data_survey_info_needed <- data_survey %>%
-  group_by(site_name, info_needed) %>%
+  group_by(gender, info_needed) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_info_needed <- data_survey_info_needed %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_info_needed_wide <- data_survey_info_needed %>%
@@ -777,9 +775,9 @@ colnames(data_survey_info_needed_wide)[5] = "Skipped"
 data_survey_info_needed_wide[, -1] <- lapply(data_survey_info_needed_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_info_needed_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_info_needed_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_info_needed_wide <- bind_rows(data_survey_info_needed_wide, total_row)
@@ -791,9 +789,9 @@ data_survey_info_needed_wide <- data_survey_info_needed_wide %>%
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
-data_survey_info_needed_wide = data_survey_info_needed_wide[, c(1,3,4,5,2)]
+data_survey_info_needed_wide = data_survey_info_needed_wide[, c(1,4,3,5,2)]
 colnames(data_survey_info_needed_wide)[5] = "Total Participants"
-colnames(data_survey_info_needed_wide)[1] = "Site Name"
+colnames(data_survey_info_needed_wide)[1] = "Gender"
 
 # Create kable table
 kable_info_needed <- data_survey_info_needed_wide %>%
@@ -807,14 +805,14 @@ kable_info_needed
 ```{r, echo = FALSE}
 # Question 15: First Survey
 
-# First, group by site_name and first_survey_completion, summarizing the counts
+# First, group by gender and first_survey_completion, summarizing the counts
 data_survey_first <- data_survey %>%
-  group_by(site_name, first_survey_completion) %>%
+  group_by(gender, first_survey_completion) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_first <- data_survey_first %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_first_wide <- data_survey_first %>%
@@ -830,9 +828,9 @@ colnames(data_survey_first_wide)[7] = "Skipped"
 data_survey_first_wide[, -1] <- lapply(data_survey_first_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_first_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_first_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_first_wide <- bind_rows(data_survey_first_wide, total_row)
@@ -844,9 +842,9 @@ data_survey_first_wide <- data_survey_first_wide %>%
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
-data_survey_first_wide = data_survey_first_wide[, c(1,3,6,4,5,7,2)]
+data_survey_first_wide = data_survey_first_wide[, c(1,5,6,3,4,7,2)]
 colnames(data_survey_first_wide)[7] = "Total Participants"
-colnames(data_survey_first_wide)[1] = "Site Name"
+colnames(data_survey_first_wide)[1] = "Gender"
 
 # Create kable table
 kable_first <- data_survey_first_wide %>%
@@ -856,12 +854,13 @@ kable_first <- data_survey_first_wide %>%
 # Print the kable table
 kable_first
 ```
+
 ```{r, echo = FALSE}
 # Question 17: Why they haven't completed first survey
 
-# First, group by site_name and why_not_first_survey, summarizing the counts
+# First, group by gender and why_not_first_survey, summarizing the counts
 data_survey_not_first <- data_survey %>%
-  group_by(site_name, why_not_first_survey) %>%
+  group_by(gender, why_not_first_survey) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Pivot the data into wide format
@@ -876,9 +875,9 @@ data_survey_not_first_wide <- data_survey_not_first %>%
 data_survey_not_first_wide[, -1] <- lapply(data_survey_not_first_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_not_first_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_not_first_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_not_first_wide <- bind_rows(data_survey_not_first_wide, total_row)
@@ -898,7 +897,7 @@ total_elig <- total1 + total2
 data_survey_not_first_wide$total <- total_elig
 
 # Calculate the skipped value
-data_survey_not_first_wide$Skipped <- total_elig - rowSums(data_survey_not_first_wide[, 3:8], na.rm = TRUE)
+data_survey_not_first_wide$Skipped <- total_elig - rowSums(data_survey_not_first_wide[, 2:7], na.rm = TRUE)
 
 
 
@@ -908,9 +907,9 @@ data_survey_not_first_wide <- data_survey_not_first_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_not_first_wide = data_survey_not_first_wide[, c(1,3,4,5,7,8,6,10,9)]
+data_survey_not_first_wide = data_survey_not_first_wide[, c(1,2:7,10,9)]
 colnames(data_survey_not_first_wide)[9] = "Total Eligible Participants"
-colnames(data_survey_not_first_wide)[1] = "Site Name"
+colnames(data_survey_not_first_wide)[1] = "Gender"
 
 # Create kable table
 kable_first <- data_survey_not_first_wide %>%
@@ -925,14 +924,14 @@ kable_first
 ```{r, echo = FALSE}
 # Question 18: Length of survey 1
 
-# First, group by site_name and length_first_survey, summarizing the counts
+# First, group by gender and length_first_survey, summarizing the counts
 data_survey_length1 <- data_survey %>%
-  group_by(site_name, length_first_survey) %>%
+  group_by(gender, length_first_survey) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_length1 <- data_survey_length1 %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_length1_wide <- data_survey_length1 %>%
@@ -949,9 +948,9 @@ colnames(data_survey_length1_wide)[6] = "Skipped"
 data_survey_length1_wide[, -1] <- lapply(data_survey_length1_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_length1_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_length1_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_length1_wide <- bind_rows(data_survey_length1_wide, total_row)
@@ -962,9 +961,9 @@ data_survey_length1_wide <- data_survey_length1_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_length1_wide = data_survey_length1_wide[, c(1,5,3,4,6,2)]
+data_survey_length1_wide = data_survey_length1_wide[, c(1,4,3,5,6,2)]
 colnames(data_survey_length1_wide)[6] = "Total Participants"
-colnames(data_survey_length1_wide)[1] = "Site Name"
+colnames(data_survey_length1_wide)[1] = "Gender"
 
 # Create kable table
 kable_length1 <- data_survey_length1_wide %>%
@@ -978,14 +977,14 @@ kable_length1
 ```{r, echo = FALSE}
 # Question 20: Donated biospecimens?
 
-# First, group by site_name and biospecimen_donation, summarizing the counts
+# First, group by gender and biospecimen_donation, summarizing the counts
 data_survey_biospec <- data_survey %>%
-  group_by(site_name, biospecimen_donation) %>%
+  group_by(gender, biospecimen_donation) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_biospec <- data_survey_biospec %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_biospec_wide <- data_survey_biospec %>%
@@ -1001,9 +1000,9 @@ colnames(data_survey_biospec_wide)[6] = "Skipped"
 data_survey_biospec_wide[, -1] <- lapply(data_survey_biospec_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_biospec_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_biospec_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_biospec_wide <- bind_rows(data_survey_biospec_wide, total_row)
@@ -1014,9 +1013,9 @@ data_survey_biospec_wide <- data_survey_biospec_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_biospec_wide = data_survey_biospec_wide[, c(1,3,4,5,6,2)]
+data_survey_biospec_wide = data_survey_biospec_wide[, c(1,5,3,4,6,2)]
 colnames(data_survey_biospec_wide)[6] = "Total Participants"
-colnames(data_survey_biospec_wide)[1] = "Site Name"
+colnames(data_survey_biospec_wide)[1] = "Gender"
 
 # Create kable table
 kable_biospec <- data_survey_biospec_wide %>%
@@ -1026,12 +1025,13 @@ kable_biospec <- data_survey_biospec_wide %>%
 # Print the kable table
 kable_biospec
 ```
+
 ```{r, echo = FALSE}
 # Queston 21: Communication About Biospecimen Donation
 
-# First, group by site_name and comms_biospeciment_donation, summarizing the counts
+# First, group by gender and comms_biospeciment_donation, summarizing the counts
 data_survey_comm_bs <- data_survey %>%
-  group_by(site_name, comms_biospeciment_donation) %>%
+  group_by(gender, comms_biospeciment_donation) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Pivot the data into wide format
@@ -1046,9 +1046,9 @@ data_survey_comm_bs_wide <- data_survey_comm_bs %>%
 data_survey_comm_bs_wide[, -1] <- lapply(data_survey_comm_bs_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_comm_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_comm_bs_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_comm_bs_wide <- bind_rows(data_survey_comm_bs_wide, total_row)
@@ -1056,7 +1056,7 @@ data_survey_comm_bs_wide <- bind_rows(data_survey_comm_bs_wide, total_row)
 data_survey_comm_bs_wide$total = data_survey_biospec_wide$Yes
 data_survey_comm_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_comm_bs_wide$total)
 data_survey_comm_bs_wide$total <- as.numeric(data_survey_comm_bs_wide$total)
-data_survey_comm_bs_wide$Skipped = data_survey_comm_bs_wide$total - rowSums(data_survey_comm_bs_wide[, 3:7], na.rm = TRUE)
+data_survey_comm_bs_wide$Skipped = data_survey_comm_bs_wide$total - rowSums(data_survey_comm_bs_wide[, 2:6], na.rm = TRUE)
 
 # Calculate percentages for each response and format them in parentheses
 data_survey_comm_bs_wide <- data_survey_comm_bs_wide %>%
@@ -1064,9 +1064,9 @@ data_survey_comm_bs_wide <- data_survey_comm_bs_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_comm_bs_wide = data_survey_comm_bs_wide[, c(1,5,4,3,6,2,9,8)]
+data_survey_comm_bs_wide = data_survey_comm_bs_wide[, c(1,4,3,2,6,5,9,8)]
 colnames(data_survey_comm_bs_wide)[8] = "Total Eligible Participants"
-colnames(data_survey_comm_bs_wide)[1] = "Site Name"
+colnames(data_survey_comm_bs_wide)[1] = "Gender"
 
 # Create kable table
 kable_comm <- data_survey_comm_bs_wide %>%
@@ -1080,14 +1080,11 @@ kable_comm
 ```{r, echo = FALSE}
 # Question 22: Time for Biospecimen Donation
 
-# First, group by site_name and time_biospecimen_donation, summarizing the counts
+# First, group by age_group and time_biospecimen_donation, summarizing the counts
 data_survey_time_bs <- data_survey %>%
-  group_by(site_name, time_biospecimen_donation) %>%
+  filter(biospecimen_donation == "Yes")%>%
+  group_by(gender, time_biospecimen_donation) %>%
   summarise(Freq = n(), .groups = "drop")
-
-# Join total counts back to the summarized data
-data_survey_time_bs <- data_survey_time_bs %>%
-  left_join(site_totals, by = "site_name")
 
 # Pivot the data into wide format
 data_survey_time_bs_wide <- data_survey_time_bs %>%
@@ -1097,28 +1094,31 @@ data_survey_time_bs_wide <- data_survey_time_bs %>%
     values_fill = list(Freq = 0)  # Fill with 0 for missing combinations
   )
 
-colnames(data_survey_time_bs_wide)[6] = "Skipped"
-
 # Ensure that the values in the wide table are numeric
 data_survey_time_bs_wide[, -1] <- lapply(data_survey_time_bs_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_time_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_time_bs_wide[, -1], na.rm = TRUE)  # Exclude 'age_group' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_time_bs_wide <- bind_rows(data_survey_time_bs_wide, total_row)
 
+data_survey_time_bs_wide$total = data_survey_biospec_wide$Yes
+data_survey_time_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_time_bs_wide$total)
+data_survey_time_bs_wide$total <- as.numeric(data_survey_time_bs_wide$total)
+data_survey_time_bs_wide$Skipped = data_survey_time_bs_wide$total - rowSums(data_survey_time_bs_wide[, 2:4], na.rm = TRUE)
+
 # Calculate percentages for each response and format them in parentheses
 data_survey_time_bs_wide <- data_survey_time_bs_wide %>%
-  mutate(across(starts_with("total"):starts_with("Skipped"),
+  mutate(across(starts_with("Right"):starts_with("Skipped"),
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_time_bs_wide = data_survey_time_bs_wide[, c(1,4,3,5,6,2)]
+data_survey_time_bs_wide = data_survey_time_bs_wide[, c(1,3,2,4,7,6)]
 colnames(data_survey_time_bs_wide)[6] = "Total Participants"
-colnames(data_survey_time_bs_wide)[1] = "Site Name"
+colnames(data_survey_time_bs_wide)[1] = "Gender"
 
 # Create kable table
 kable_time <- data_survey_time_bs_wide %>%
@@ -1128,17 +1128,15 @@ kable_time <- data_survey_time_bs_wide %>%
 # Print the kable table
 kable_time
 ```
+
 ```{r, echo = FALSE}
 # Question 23: Ease of Donating Samples
 
-# First, group by site_name and ease_donating_samples, summarizing the counts
+# First, group by gender and ease_donating_samples, summarizing the counts
 data_survey_ease_bs <- data_survey %>%
-  group_by(site_name, ease_donating_samples) %>%
+  filter(biospecimen_donation == "Yes")%>%
+  group_by(gender, ease_donating_samples) %>%
   summarise(Freq = n(), .groups = "drop")
-
-# Join total counts back to the summarized data
-data_survey_ease_bs <- data_survey_ease_bs %>%
-  left_join(site_totals, by = "site_name")
 
 # Pivot the data into wide format
 data_survey_ease_bs_wide <- data_survey_ease_bs %>%
@@ -1154,22 +1152,27 @@ colnames(data_survey_ease_bs_wide)[8] = "Skipped"
 data_survey_ease_bs_wide[, -1] <- lapply(data_survey_ease_bs_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_ease_bs_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_ease_bs_wide[, -1], na.rm = TRUE)  # Exclude 'age_group' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_ease_bs_wide <- bind_rows(data_survey_ease_bs_wide, total_row)
 
+data_survey_ease_bs_wide$total = data_survey_biospec_wide$Yes
+data_survey_ease_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_ease_bs_wide$total)
+data_survey_ease_bs_wide$total <- as.numeric(data_survey_ease_bs_wide$total)
+data_survey_ease_bs_wide$Skipped = data_survey_ease_bs_wide$total - rowSums(data_survey_ease_bs_wide[, 2:6], na.rm = TRUE)
+
 # Calculate percentages for each response and format them in parentheses
 data_survey_ease_bs_wide <- data_survey_ease_bs_wide %>%
-  mutate(across(starts_with("total"):starts_with("Skipped"),
+  mutate(across(starts_with("Easy"):starts_with("Skipped"),
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_ease_bs_wide = data_survey_ease_bs_wide[, c(1,4,3,6,5,7,8,2)]
+data_survey_ease_bs_wide = data_survey_ease_bs_wide[, c(1,6,3,4,2,5,9,8)]
 colnames(data_survey_ease_bs_wide)[8] = "Total Participants"
-colnames(data_survey_ease_bs_wide)[1] = "Site Name"
+colnames(data_survey_ease_bs_wide)[1] = "Gender"
 
 # Create kable table
 kable_ease <- data_survey_ease_bs_wide %>%
@@ -1183,14 +1186,14 @@ kable_ease
 ```{r, echo = FALSE}
 # Question 24: Experience with the Connect Team
 
-# First, group by site_name and ease_donating_samples, summarizing the counts
+# First, group by gender and ease_donating_samples, summarizing the counts
 data_survey_exp <- data_survey %>%
-  group_by(site_name, exp_dontating_samples) %>%
+  group_by(gender, exp_dontating_samples) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_exp <- data_survey_exp %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_exp_wide <- data_survey_exp %>%
@@ -1206,9 +1209,9 @@ colnames(data_survey_exp_wide)[8] = "Skipped"
 data_survey_exp_wide[, -1] <- lapply(data_survey_exp_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_exp_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_exp_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_exp_wide <- bind_rows(data_survey_exp_wide, total_row)
@@ -1219,9 +1222,9 @@ data_survey_exp_wide <- data_survey_exp_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_exp_wide = data_survey_exp_wide[, c(1,3,4,5,6,7,8,2)]
+data_survey_exp_wide = data_survey_exp_wide[, c(1,7,5,4,3,6,8,2)]
 colnames(data_survey_exp_wide)[8] = "Total Participants"
-colnames(data_survey_exp_wide)[1] = "Site Name"
+colnames(data_survey_exp_wide)[1] = "Gender"
 
 # Create kable table
 kable_ease <- data_survey_exp_wide %>%
@@ -1231,17 +1234,18 @@ kable_ease <- data_survey_exp_wide %>%
 # Print the kable table
 kable_ease
 ```
+
 ```{r, echo = FALSE}
 # Question 26: Sample Survey Completion
 
-# First, group by site_name and sample_survey_completion, summarizing the counts
+# First, group by gender and sample_survey_completion, summarizing the counts
 data_survey_ss <- data_survey %>%
-  group_by(site_name, sample_survey_completion) %>%
+  group_by(gender, sample_survey_completion) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_ss <- data_survey_ss %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_ss_wide <- data_survey_ss %>%
@@ -1257,9 +1261,9 @@ colnames(data_survey_ss_wide)[6] = "Skipped"
 data_survey_ss_wide[, -1] <- lapply(data_survey_ss_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_ss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_ss_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_ss_wide <- bind_rows(data_survey_ss_wide, total_row)
@@ -1270,9 +1274,9 @@ data_survey_ss_wide <- data_survey_ss_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_ss_wide = data_survey_ss_wide[, c(1,3,4,5,6,2)]
+data_survey_ss_wide = data_survey_ss_wide[, c(1,5,3,4,6,2)]
 colnames(data_survey_ss_wide)[6] = "Total Participants"
-colnames(data_survey_ss_wide)[1] = "Site Name"
+colnames(data_survey_ss_wide)[1] = "Gender"
 
 # Create kable table
 kable_ss <- data_survey_ss_wide %>%
@@ -1282,12 +1286,13 @@ kable_ss <- data_survey_ss_wide %>%
 # Print the kable table
 kable_ss
 ```
+
 ```{r, echo = FALSE}
 # Question 27: Sample Survey Completion at Visit
 
-# First, group by site_name and at_visit_sample_survey, summarizing the counts
+# First, group by gender and at_visit_sample_survey, summarizing the counts
 data_survey_vss <- data_survey %>%
-  group_by(site_name, at_visit_sample_survey) %>%
+  group_by(gender, at_visit_sample_survey) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Pivot the data into wide format
@@ -1302,9 +1307,9 @@ data_survey_vss_wide <- data_survey_vss %>%
 data_survey_vss_wide[, -1] <- lapply(data_survey_vss_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_vss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_vss_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_vss_wide <- bind_rows(data_survey_vss_wide, total_row)
@@ -1323,7 +1328,7 @@ data_survey_vss_wide <- data_survey_vss_wide %>%
 
 data_survey_vss_wide = data_survey_vss_wide[, c(1,4,2,3,7,6)]
 colnames(data_survey_vss_wide)[6] = "Total Eligible Participants"
-colnames(data_survey_vss_wide)[1] = "Site Name"
+colnames(data_survey_vss_wide)[1] = "Gender"
 
 # Create kable table
 kable_vss <- data_survey_vss_wide %>%
@@ -1338,14 +1343,14 @@ kable_vss
 # Question 28: Personal Device Usage for Sample Survey
 # Calculate samp_participants_total per site
 samp_participants_total <- data_survey_ss_wide %>%
-  select(`Site Name`, Yes) %>%
-  rename(site_name = `Site Name`) %>%
+  select(`Gender`, Yes) %>%
+  rename(gender = `Gender`) %>%
   mutate(samp_participants_total = as.numeric(gsub("\\s*\\(.*?\\)", "", Yes))) %>%
   select(-Yes)
 
 # Summarize data_dev and join samp_participants_total for percentages
 samp_basic <- data_dev %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarise(
     samp_prov_healthcare_total_select = sum(as.integer(samp_prov_healthcare == 1), na.rm = TRUE),
     samp_prov_healthcare_total_non_select = sum(as.integer(samp_prov_healthcare == 0), na.rm = TRUE),
@@ -1359,15 +1364,15 @@ samp_basic <- data_dev %>%
     samp_yes_emp_total_non_select = sum(as.integer(samp_yes_emp == 0), na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  left_join(samp_participants_total, by = "site_name")
+  left_join(samp_participants_total, by = "gender")
   
 # Ensure that the values in the wide table are numeric
 samp_basic[, -1] <- lapply(samp_basic[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(samp_basic[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(samp_basic[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 samp_basic <- bind_rows(samp_basic, total_row)
@@ -1394,7 +1399,7 @@ samp_basic = samp_basic%>%
 
 # Select only percentage columns before renaming
 samp_basic <- samp_basic %>%
-  select(site_name, 
+  select(gender, 
          samp_prov_healthcare_select_percent, 
          samp_prov_healthcare_non_select_percent,
          samp_borrow_select_percent, 
@@ -1408,7 +1413,7 @@ samp_basic <- samp_basic %>%
          samp_participants_total)
 
 # Rename columns for display
-colnames(samp_basic) <- c("Site Name", 
+colnames(samp_basic) <- c("Gender", 
                              "Provided by Healthcare--Selected", 
                              "Provided by Healthcare--Not Selected", 
                              "Borrowed--Selected", 
@@ -1421,26 +1426,29 @@ colnames(samp_basic) <- c("Site Name",
                              "Yes Employer Provided--Not Selected",
                              "Total Participants")
 samp_basic <- samp_basic %>%
-  select(`Site Name`, matches("Selected$") &! matches("Not Selected"), `Total Participants`)
+  select(`Gender`, matches("Selected$") &! matches("Not Selected"), `Total Participants`)
 
 # Print the table
-knitr::kable(samp_basic, 
+samp_basic_table = knitr::kable(samp_basic, 
              caption = 'Did you use your own personal device to complete the sample survey? Select all that apply.', 
              row.names = FALSE,
              align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"), 
-             booktabs = TRUE, 
-             longtable = TRUE) %>% 
+             booktabs = TRUE,
+             format = "latex",
+             longtable = FALSE) %>% 
   kableExtra::kable_styling(
-      latex_options = c("hold_position", "scale_down", "repeat_header", "landscape")
+      latex_options = c("hold_position", "scale_down")
   )
+
+samp_basic_table
 ```
 
 ```{r, echo = FALSE}
 # Question 29: Reasons for Not Completing Sample Survey
 
-# First, group by site_name and why_not_sample_survey, summarizing the counts
+# First, group by gender and why_not_sample_survey, summarizing the counts
 data_survey_not_ss <- data_survey %>%
-  group_by(site_name, why_not_sample_survey) %>%
+  group_by(gender, why_not_sample_survey) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Pivot the data into wide format
@@ -1455,9 +1463,9 @@ data_survey_not_ss_wide <- data_survey_not_ss %>%
 data_survey_not_ss_wide[, -1] <- lapply(data_survey_not_ss_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_not_ss_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_not_ss_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_not_ss_wide <- bind_rows(data_survey_not_ss_wide, total_row)
@@ -1466,7 +1474,7 @@ data_survey_not_ss_wide <- bind_rows(data_survey_not_ss_wide, total_row)
 data_survey_not_ss_wide$total = data_survey_ss_wide$No
 data_survey_not_ss_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_not_ss_wide$total)
 data_survey_not_ss_wide$total <- as.numeric(data_survey_not_ss_wide$total)
-data_survey_not_ss_wide$Skipped = data_survey_not_ss_wide$total - rowSums(data_survey_not_ss_wide[, 3:8], na.rm = TRUE)
+data_survey_not_ss_wide$Skipped = data_survey_not_ss_wide$total - rowSums(data_survey_not_ss_wide[, c(2:5, 7, 8)], na.rm = TRUE)
 
 
 # Calculate percentages for each response and format them in parentheses
@@ -1475,9 +1483,9 @@ data_survey_not_ss_wide <- data_survey_not_ss_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_not_ss_wide = data_survey_not_ss_wide[, c(1,3:5, 7,8,6,10,9)]
+data_survey_not_ss_wide = data_survey_not_ss_wide[, c(1,2:4,7,8,5,10,9)]
 colnames(data_survey_not_ss_wide)[9] = "Total Eligible Participants"
-colnames(data_survey_not_ss_wide)[1] = "Site Name"
+colnames(data_survey_not_ss_wide)[1] = "Gender"
 
 # Create kable table
 kable_not_ss <- data_survey_not_ss_wide %>%
@@ -1491,14 +1499,14 @@ kable_not_ss
 ```{r, echo = FALSE}
 # Question 31: Length Preference
 
-# First, group by site_name and sample_survey_completion, summarizing the counts
+# First, group by gender and sample_survey_completion, summarizing the counts
 data_survey_sslen <- data_survey %>%
-  group_by(site_name, survey_length_pref) %>%
+  group_by(gender, survey_length_pref) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_sslen <- data_survey_sslen %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_sslen_wide <- data_survey_sslen %>%
@@ -1515,9 +1523,9 @@ colnames(data_survey_sslen_wide)[6] = "Skipped"
 data_survey_sslen_wide[, -1] <- lapply(data_survey_sslen_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_sslen_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_sslen_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_sslen_wide <- bind_rows(data_survey_sslen_wide, total_row)
@@ -1528,9 +1536,9 @@ data_survey_sslen_wide <- data_survey_sslen_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_sslen_wide = data_survey_sslen_wide[, c(1,4,3,5,6,2)]
+data_survey_sslen_wide = data_survey_sslen_wide[, c(1,5,3,4,6,2)]
 colnames(data_survey_sslen_wide)[6] = "Total Participants"
-colnames(data_survey_sslen_wide)[1] = "Site Name"
+colnames(data_survey_sslen_wide)[1] = "Gender"
 
 # Create kable table
 kable_sslen <- data_survey_sslen_wide %>%
@@ -1540,17 +1548,18 @@ kable_sslen <- data_survey_sslen_wide %>%
 # Print the kable table
 kable_sslen
 ```
+
 ```{r, echo = FALSE}
 # Question 32: Overall Experience
 
-# First, group by site_name and overall_experience, summarizing the counts
+# First, group by gender and overall_experience, summarizing the counts
 data_survey_over <- data_survey %>%
-  group_by(site_name, overall_experience) %>%
+  group_by(gender, overall_experience) %>%
   summarise(Freq = n(), .groups = "drop")
 
 # Join total counts back to the summarized data
 data_survey_over <- data_survey_over %>%
-  left_join(site_totals, by = "site_name")
+  left_join(site_totals, by = "gender")
 
 # Pivot the data into wide format
 data_survey_over_wide <- data_survey_over %>%
@@ -1567,9 +1576,9 @@ colnames(data_survey_over_wide)[8] = "Skipped"
 data_survey_over_wide[, -1] <- lapply(data_survey_over_wide[, -1], as.numeric)
 
 # Add a total row using colSums
-total_row <- colSums(data_survey_over_wide[, -1], na.rm = TRUE)  # Exclude 'site_name' for summation
+total_row <- colSums(data_survey_over_wide[, -1], na.rm = TRUE)  # Exclude 'gender' for summation
 total_row <- as.data.frame(t(total_row))  # Transpose to make it a row
-total_row <- cbind(`site_name` = "Total", total_row)  # Add the total label
+total_row <- cbind(`gender` = "Total", total_row)  # Add the total label
 
 # Append the total row to the original data
 data_survey_over_wide <- bind_rows(data_survey_over_wide, total_row)
@@ -1580,9 +1589,9 @@ data_survey_over_wide <- data_survey_over_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_over_wide = data_survey_over_wide[, c(1,7,6,5,3,4,8,2)]
+data_survey_over_wide = data_survey_over_wide[, c(1,7,5,4,3,6,8,2)]
 colnames(data_survey_over_wide)[8] = "Total Participants"
-colnames(data_survey_over_wide)[1] = "Site Name"
+colnames(data_survey_over_wide)[1] = "Gender"
 
 # Create kable table
 kable_over <- data_survey_over_wide %>%
@@ -1597,7 +1606,7 @@ kable_over
 ```{r, echo = FALSE}
 # Question 35: Why they joined Connect
 data_why <- data_survey %>%
-  group_by(site_name) %>%
+  group_by(gender) %>%
   summarise(
     participants_total = n(),
 
@@ -1694,7 +1703,7 @@ data_why <- data_survey %>%
 
 # Rename columns of table_why with Selected and Not Selected
 colnames(data_why) <- c(
-  "Site Name",
+  "Gender",
   "Total Participants",
   "Cancer Personal Impact",
   "Cancer Personal Impact Not Selected",
@@ -1724,7 +1733,7 @@ data_why <- data_why %>%
 # Calculate total row for data_why
 total_row <- data_why %>%
   summarise(
-    `Site Name` = "Total",
+    `Gender` = "Total",
     `Total Participants` = sum(`Total Participants`, na.rm = TRUE),
     `Cancer Personal Impact` = paste0(
       sum(as.integer(sub(" \\(.*\\)", "", `Cancer Personal Impact`)), na.rm = TRUE), " (",
@@ -1766,6 +1775,7 @@ total_row <- data_why %>%
 
 # Append the total row to the data_why table
 data_why <- bind_rows(data_why, total_row)
+data_why = data_why[, c(1, 3:11, 2)]
 
 # Create the Kable table with a caption, footnote, and landscape format
 kable_why <- knitr::kable(data_why, 
