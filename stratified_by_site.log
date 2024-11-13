@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2024.11.4)  7 NOV 2024 16:13
+This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2024.11.4)  13 NOV 2024 14:06
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -569,11 +569,11 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 
 {/Users/orszagl2/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/Users/orszagl2/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 168.
+(Font)              <10> on input line 166.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 168.
+(Font)              <7> on input line 166.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 168.
+(Font)              <5> on input line 166.
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
@@ -657,13 +657,13 @@ L3 programming layer <2024-11-02>
 Here is how much of TeX's memory you used:
  14137 strings out of 475322
  224733 string characters out of 5769217
- 737543 words of memory out of 5000000
+ 736423 words of memory out of 5000000
  36722 multiletter control sequences out of 15000+600000
  599488 words of font info for 74 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  89i,14n,93p,361b,593s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </Users/orszagl2/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr10.pfb></Users/orszagl2/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr12.pfb></Users/orszagl2/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr17.pfb></Users/orszagl2/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmri10.pfb>
-Output written on stratified_by_site.pdf (11 pages, 122089 bytes).
+Output written on stratified_by_site.pdf (11 pages, 122132 bytes).
 PDF statistics:
  104 PDF objects out of 1000 (max. 8388607)
  82 compressed objects within 1 object stream

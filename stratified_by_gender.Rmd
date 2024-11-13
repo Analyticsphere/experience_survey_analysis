@@ -229,6 +229,19 @@ data_gender = data_gender1 %>%
   select(-gender_1, -gender_2)
 ```
 
+```{r, echo = FALSE}
+submitted <- glue::glue(
+    "
+      SELECT 
+      Connect_ID
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+    WHERE d_956490759 = '231311385'
+    ")
+    
+# Query the data and store as reference object
+submitted <- dbGetQuery(con_completion, submitted)
+```
+
 
 ```{r, echo = FALSE}
 data_gender[] <- lapply(data_gender, function(x) {
@@ -261,6 +274,11 @@ data_dev = left_join(data_dev, data_gender, by = "Connect_ID")
 
 ```{r, echo = FALSE}
 data_survey = left_join(data_survey, data_gender, by = "Connect_ID")
+```
+
+```{r, echo = FALSE}
+data_dev = right_join(data_dev, submitted, by = "Connect_ID")
+data_survey = right_join(data_survey, submitted, by = "Connect_ID")
 ```
 
 
@@ -1424,9 +1442,9 @@ colnames(samp_basic) <- c("Gender",
                              "Yes--Not Selected",
                              "Yes Employer Provided--Selected", 
                              "Yes Employer Provided--Not Selected",
-                             "Total Participants")
+                             "Total Eligible Participants")
 samp_basic <- samp_basic %>%
-  select(`Gender`, matches("Selected$") &! matches("Not Selected"), `Total Participants`)
+  select(`Gender`, matches("Selected$") &! matches("Not Selected"), `Total Eligible Participants`)
 
 # Print the table
 samp_basic_table = knitr::kable(samp_basic, 

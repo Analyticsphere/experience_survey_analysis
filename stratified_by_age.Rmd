@@ -204,13 +204,12 @@ sql_age <- glue::glue(
     "
       SELECT 
       Connect_ID,
-       d_821247024,
+      d_821247024,
     DATE_DIFF(CAST(SUBSTR(d_263355177, 1, 10) AS DATE), PARSE_DATE('%Y%m%d', CAST(d_371067537 AS STRING)), DAY) / 365 AS age
   FROM
     `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
   WHERE
     d_821247024 = '197316935' -- Include Only Verified Participants
-    AND d_747006172 != '353358909'
     AND Connect_ID is not NULL
     ")
     
@@ -221,12 +220,12 @@ data_age <- dbGetQuery(con_completion, sql_age)
 
 ```{r, echo = FALSE}
 data_age <- data_age %>%
-  mutate(age_group = cut(age, 
-                         breaks = c(seq(30, 65, by = 5), 70),  # Extend the last group to 70
+  mutate(age = floor(age),  # Floor ages to ensure they fit within intervals
+         age_group = cut(age, 
+                         breaks = c(seq(30, 70, by = 5), 75), 
                          right = FALSE,
-                         labels = c(paste(seq(30, 60, by = 5), seq(34, 64, by = 5), sep = "-"), "65-70")))
+                         labels = c(paste(seq(30, 65, by = 5), seq(34, 69, by = 5), sep = "-"), "70-75")))
 ```
-
 
 ```{r, echo = FALSE}
 num_participants = dim(data_survey)[1]
@@ -240,6 +239,23 @@ data_dev = left_join(data_dev, data_age, by = "Connect_ID")
 data_survey = left_join(data_survey, data_age, by = "Connect_ID")
 ```
 
+```{r, echo = FALSE}
+submitted <- glue::glue(
+    "
+      SELECT 
+      Connect_ID
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+    WHERE d_956490759 = '231311385'
+    ")
+    
+# Query the data and store as reference object
+submitted <- dbGetQuery(con_completion, submitted)
+```
+
+```{r, echo = FALSE}
+data_dev = right_join(data_dev, submitted, by = "Connect_ID")
+data_survey = right_join(data_survey, submitted, by = "Connect_ID")
+```
 
 ```{r, echo = FALSE}
 # Question 1: Type of Device
@@ -513,8 +529,7 @@ data_survey_ease_wide <- data_survey_ease %>%
   )
 
 # Rename columns if needed
-colnames(data_survey_ease_wide)[7] <- "Skipped"
-rownames(data_survey_ease_wide)[9] <- "Skipped"
+colnames(data_survey_ease_wide)[8] <- "Skipped"
 
 # Ensure that the values in the wide table are numeric
 data_survey_ease_wide[, -1] <- lapply(data_survey_ease_wide[, -1], as.numeric)
@@ -530,7 +545,7 @@ data_survey_ease_wide <- bind_rows(data_survey_ease_wide, total_row)
 # Convert numeric columns to formatted strings with percentages
 data_survey_ease_wide <- data_survey_ease_wide %>%
   mutate(across(
-    starts_with("total"):starts_with("Very hard"),
+    starts_with("total"):starts_with("Skipped"),
     ~ paste0(.x, " (", round(.x / total * 100, 1), "%)")
   ))
 
@@ -821,7 +836,7 @@ data_survey_first_wide <- data_survey_first_wide %>%
 
 data_survey_first_wide = data_survey_first_wide[, c(1,5,6,3,4,7,2)]
 colnames(data_survey_first_wide)[7] = "Total Participants"
-colnames(data_survey_first_wide)[1] = "Age Groups"
+colnames(data_survey_first_wide)[1] = "Age Group"
 
 # Create kable table
 kable_first <- data_survey_first_wide %>%
@@ -885,7 +900,7 @@ data_survey_not_first_wide <- data_survey_not_first_wide %>%
 
 data_survey_not_first_wide = data_survey_not_first_wide[, c(1,2,3,4,5,8,6,10,9)]
 colnames(data_survey_not_first_wide)[9] = "Total Eligible Participants"
-colnames(data_survey_not_first_wide)[1] = "Age Groups"
+colnames(data_survey_not_first_wide)[1] = "Age Group"
 
 # Create kable table
 kable_first <- data_survey_not_first_wide %>%
@@ -1032,7 +1047,7 @@ data_survey_comm_bs_wide <- bind_rows(data_survey_comm_bs_wide, total_row)
 data_survey_comm_bs_wide$total = data_survey_biospec_wide$Yes
 data_survey_comm_bs_wide$total <- gsub("\\s*\\(.*?\\)", "", data_survey_comm_bs_wide$total)
 data_survey_comm_bs_wide$total <- as.numeric(data_survey_comm_bs_wide$total)
-data_survey_comm_bs_wide$Skipped = data_survey_comm_bs_wide$total - rowSums(data_survey_comm_bs_wide[, 2:6], na.rm = TRUE)
+data_survey_comm_bs_wide$Skipped = data_survey_comm_bs_wide$total - rowSums(data_survey_comm_bs_wide[, c(2:5, 7)], na.rm = TRUE)
 
 # Calculate percentages for each response and format them in parentheses
 data_survey_comm_bs_wide <- data_survey_comm_bs_wide %>%
@@ -1040,7 +1055,7 @@ data_survey_comm_bs_wide <- data_survey_comm_bs_wide %>%
                 ~ paste0(.x, " (", round(.x / total * 100, 1), "%)"),
                 .names = "{.col}")) # Creating formatted strings
 
-data_survey_comm_bs_wide = data_survey_comm_bs_wide[, c(1,4,3,2,6,5,9,8)]
+data_survey_comm_bs_wide = data_survey_comm_bs_wide[, c(1,7,3,2,5,4,9,8)]
 colnames(data_survey_comm_bs_wide)[8] = "Total Eligible Participants"
 colnames(data_survey_comm_bs_wide)[1] = "Age Group"
 

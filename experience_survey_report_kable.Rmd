@@ -8,7 +8,6 @@ header-includes:
     \usepackage{booktabs}
     \usepackage{pdflscape}
 
-
 output:
   pdf_document:
       extra_dependencies: ["float"]
@@ -39,6 +38,7 @@ library(ggplot2)
 library(knitr)
 library(kableExtra)
 library(scales)
+library(tidyr)
 bq_auth() # Authenticate with BigQuery
 con_completion <- dbConnect(bigrquery::bigquery(), 
                             project=project, 
@@ -56,24 +56,43 @@ knitr::opts_chunk$set(
 # Pulling data
 sql <- glue(
   "
-              SELECT d_956490759
-              FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+            SELECT 
+              d_827220437 as site_name,
+              d_956490759 as completion_status,
+              COUNT(d_956490759) AS count
+            FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+            GROUP BY 
+              site_name, d_956490759
+            ORDER BY 
+              site_name, d_956490759
             ")
 
 # Query the data and store as reference object
 data_completion <- dbGetQuery(con_completion, sql)
+```
 
-# Pull counts
-data_completion <- data_completion %>%
-  count(d_956490759) %>%
-  mutate (survey_completion = case_when(d_956490759 == '972455046'  ~ 'Not Started',
-                                        d_956490759 == '615768760' ~ 'Started',
-                                        d_956490759 == '231311385' ~ 'Submitted')) %>%
-  collect()
+```{r, echo = FALSE}
+data_completion[c("site_name", "completion_status")] <- lapply(data_completion[c("site_name", "completion_status")], function(x) {
+  if (is.character(x)) {
+    x <- gsub("531629870", "Health Partners", x)
+    x <- gsub("548392715", "Henry Ford", x)
+    x <- gsub("125001209", "KP Colorado", x)
+    x <- gsub("327912200", "KP Georgia", x)
+    x <- gsub("300267574", "KP Hawaii", x)
+    x <- gsub("452412599", "KP Northwest", x)
+    x <- gsub("303349821", "Marshfield", x)
+    x <- gsub("657167265", "Sanford", x)
+    x <- gsub("809703864", "U Chicago", x)
+    x <- gsub("472940358", "Baylor Scott & White", x)
+    x <- gsub("517700004", "NCI", x)
+    x <- gsub("181769837", "Other", x)
+    x <- gsub("231311385", "Submitted", x)
+    x <- gsub("615768760", "Started", x)
+    x <- gsub("972455046", "Not Started", x)
+  }
+  x
+})
 
-total_eligible = sum(data_completion$n[1:3])
-data_completion$percentage = data_completion$n/(total_eligible)*100
-data_completion = data_completion[1:3, ]
 ```
 
 ```{r, echo = FALSE}
@@ -108,7 +127,8 @@ sql2 <- glue(
                   D_960544981_d_815468840 as why_joined_like_research, 
                   D_960544981_d_847753225 as why_joined_payment, 
                   D_960544981_d_925993577 as why_joined_help_other,
-                  D_960544981_d_985468594 as why_joined_friend_involved
+                  D_960544981_d_985468594 as why_joined_friend_involved,
+                  Connect_ID
                   
               FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`
             ")
@@ -201,7 +221,8 @@ sql_dev <- glue(
                 D_649713579_d_899315984 AS samp_yes_emp,
                 D_145727599_d_153962804 AS device_tablet, 
                 D_145727599_d_188067494 AS device_computer, 
-                D_145727599_d_386252749 AS device_phone 
+                D_145727599_d_386252749 AS device_phone,
+                Connect_ID
             FROM 
                 `nih-nci-dceg-connect-prod-6d04.FlatConnect.experience2024_JP`;
 
@@ -212,6 +233,24 @@ data_dev <- dbGetQuery(con_completion, sql_dev)
 
 data_dev <- data_dev %>% 
   collect()
+```
+
+```{r, echo = FALSE}
+submitted <- glue::glue(
+    "
+      SELECT 
+      Connect_ID
+    FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP`
+    WHERE d_956490759 = '231311385'
+    ")
+    
+# Query the data and store as reference object
+submitted <- dbGetQuery(con_completion, submitted)
+```
+
+```{r, echo = FALSE}
+data_dev = right_join(data_dev, submitted, by = "Connect_ID")
+data_survey = right_join(data_survey, submitted, by = "Connect_ID")
 ```
 
 ```{r, echo = FALSE}
@@ -370,8 +409,7 @@ data_survey_tech <- data_survey_tech %>%
 kable_tech <- data_survey_tech %>%
   arrange(Var1) %>%
   kable("latex", booktabs = TRUE, col.names = c("Response", "Number of Participants", "Percentage of Participants"),   align = c("l", "c", "c","c","c","c"), caption = "Have you experienced technical problems?") %>%
-  kable_styling(latex_options = "hold_position") %>%
-  add_header_above(c("Have you experienced technical problems?" = 3))
+  kable_styling(latex_options = "hold_position")
 
 
 # Print the table
@@ -1050,3 +1088,49 @@ kable_why <- knitr::kable(table_why,
 # Print the Kable table
 kable_why
 ```
+
+```{r, echo = FALSE}
+# Response by Site
+completion_table <- data_completion %>%
+  pivot_wider(names_from = completion_status, values_from = count, values_fill = 0)
+
+completion_table = as.data.frame(completion_table)
+completion_table = completion_table[2:11,c(1,3,4,5)]
+
+# Add total row
+completion_table <- completion_table %>%
+  mutate(Total = Submitted + Started + `Not Started`)
+
+# Calculate the total row and bind it to the bottom
+completion_table <- bind_rows(
+  completion_table,
+  completion_table %>%
+    summarise(
+      site_name = "Total",
+      Submitted = sum(Submitted),
+      Started = sum(Started),
+      `Not Started` = sum(`Not Started`),
+      Total = sum(Total)
+    )
+)
+
+# Calculate percentages for each cell and add them in parentheses
+completion_table <- completion_table %>%
+  mutate(
+    Submitted = paste0(Submitted, " (", round((Submitted / Total) * 100, 1), "%)"),
+    Started = paste0(Started, " (", round((Started / Total) * 100, 1), "%)"),
+    `Not Started` = paste0(`Not Started`, " (", round((`Not Started` / Total) * 100, 1), "%)"),
+    Total = paste0(Total, " (", round((Total / Total) * 100, 1), "%)")
+  )
+
+# Use kable to display the table with the new columns
+kable_comp_by_site <- completion_table %>%
+  kable("latex", booktabs = TRUE, 
+        col.names = c("Site Name", "Submitted", "Started", "Not Started", "Total"), 
+        align = c("l", "c", "c", "c", "c"),
+        caption = "Completion Status by Site") %>%
+  kable_styling(latex_options = "hold_position")
+
+kable_comp_by_site
+```
+
